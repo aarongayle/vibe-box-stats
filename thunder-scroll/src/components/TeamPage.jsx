@@ -160,7 +160,12 @@ function TeamPage() {
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Schedule</p>
+            <div className="flex items-center gap-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Schedule</p>
+              {schedule.length > 0 && schedule[0]?.teamRecord && (
+                <span className="font-mono text-xs text-zinc-400">{schedule[0].teamRecord}</span>
+              )}
+            </div>
             <button
               type="button"
               onClick={loadSchedule}

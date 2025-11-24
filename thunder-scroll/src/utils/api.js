@@ -102,6 +102,7 @@ const normalizeScheduleEvent = (event, teamId) => {
     opponentScore,
     result,
     scoreline: teamScore !== null && opponentScore !== null ? `${teamScore} - ${opponentScore}` : null,
+    teamRecord: getRecordSummary(team),
     opponent: opponent
       ? {
           name: opponentTeam?.displayName ?? opponentTeam?.name ?? 'Opponent',
