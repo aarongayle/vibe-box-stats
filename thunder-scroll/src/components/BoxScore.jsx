@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 const formatUpdatedAt = (iso) => {
   if (!iso) return '';
   return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
@@ -14,6 +16,9 @@ const LiveIndicator = () => (
 );
 
 const BoxScore = ({ summary, loading, fallbackGame }) => {
+  const [reboundsExpanded, setReboundsExpanded] = useState(false);
+  const [stocksExpanded, setStocksExpanded] = useState(false);
+
   const status = summary?.status ?? fallbackGame?.status ?? {};
   const isLive = status?.state === 'in';
 
@@ -50,11 +55,59 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
               <th className="py-2 px-3 text-right font-mono">MIN</th>
               <th className="py-2 px-3 text-right font-mono">PTS</th>
               <th className="py-2 px-3 text-right font-mono">3PM-A</th>
-              <th className="py-2 px-3 text-right font-mono">OREB</th>
-              <th className="py-2 px-3 text-right font-mono">DREB</th>
+              {reboundsExpanded ? (
+                <>
+                  <th
+                    className="py-2 px-3 text-right font-mono cursor-pointer underline hover:text-zinc-400 transition-colors"
+                    onClick={() => setReboundsExpanded(false)}
+                    title="Click to collapse"
+                  >
+                    OREB
+                  </th>
+                  <th
+                    className="py-2 px-3 text-right font-mono cursor-pointer underline hover:text-zinc-400 transition-colors"
+                    onClick={() => setReboundsExpanded(false)}
+                    title="Click to collapse"
+                  >
+                    DREB
+                  </th>
+                </>
+              ) : (
+                <th
+                  className="py-2 px-3 text-right font-mono cursor-pointer underline hover:text-zinc-400 transition-colors"
+                  onClick={() => setReboundsExpanded(true)}
+                  title="Click to expand"
+                >
+                  REB
+                </th>
+              )}
               <th className="py-2 px-3 text-right font-mono">AST</th>
-              <th className="py-2 px-3 text-right font-mono">STL</th>
-              <th className="py-2 px-3 text-right font-mono">BLK</th>
+              {stocksExpanded ? (
+                <>
+                  <th
+                    className="py-2 px-3 text-right font-mono cursor-pointer underline hover:text-zinc-400 transition-colors"
+                    onClick={() => setStocksExpanded(false)}
+                    title="Click to collapse"
+                  >
+                    STL
+                  </th>
+                  <th
+                    className="py-2 px-3 text-right font-mono cursor-pointer underline hover:text-zinc-400 transition-colors"
+                    onClick={() => setStocksExpanded(false)}
+                    title="Click to collapse"
+                  >
+                    BLK
+                  </th>
+                </>
+              ) : (
+                <th
+                  className="py-2 px-3 text-right font-mono cursor-pointer underline hover:text-zinc-400 transition-colors"
+                  onClick={() => setStocksExpanded(true)}
+                  title="Click to expand"
+                >
+                  STOCKS
+                </th>
+              )}
               <th className="py-2 px-3 text-right font-mono">PF</th>
             </tr>
           </thead>
@@ -81,11 +134,27 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
                     {player.threePointersMade}-{player.threePointersAttempted}
                   </td>
-                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.offensiveRebounds}</td>
-                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.defensiveRebounds}</td>
+                  {reboundsExpanded ? (
+                    <>
+                      <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.offensiveRebounds}</td>
+                      <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.defensiveRebounds}</td>
+                    </>
+                  ) : (
+                    <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
+                      {(player.offensiveRebounds ?? 0) + (player.defensiveRebounds ?? 0)}
+                    </td>
+                  )}
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.assists}</td>
-                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.steals ?? 0}</td>
-                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.blocks ?? 0}</td>
+                  {stocksExpanded ? (
+                    <>
+                      <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.steals ?? 0}</td>
+                      <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.blocks ?? 0}</td>
+                    </>
+                  ) : (
+                    <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
+                      {(player.steals ?? 0) + (player.blocks ?? 0)}
+                    </td>
+                  )}
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.fouls}</td>
                 </tr>
               );
