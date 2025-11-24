@@ -1,4 +1,3 @@
-const TEAM_ID = '25';
 const BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 
 const defaultHeaders = {
@@ -20,8 +19,15 @@ export default async function handler(req, res) {
     return;
   }
 
+  const { teamId } = req.query || {};
+  
+  if (!teamId) {
+    res.status(400).json({ error: 'Missing required teamId parameter' });
+    return;
+  }
+
   try {
-    const response = await fetch(`${BASE_URL}/teams/${TEAM_ID}/schedule`, {
+    const response = await fetch(`${BASE_URL}/teams/${teamId}/schedule`, {
       headers: defaultHeaders,
     });
 
