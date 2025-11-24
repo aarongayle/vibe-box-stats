@@ -115,23 +115,27 @@ const normalizeScheduleEvent = (event) => {
   };
 };
 
-const parsePlayers = (boxscorePlayers = []) => {
-  const thunderSection = boxscorePlayers.find((team) => team.team?.id === TEAM_ID);
-  if (!thunderSection) return [];
+const parseTeamPlayers = (teamSection) => {
+  if (!teamSection) return [];
 
-  const statTable = thunderSection.statistics?.find((stat) => Array.isArray(stat.athletes));
+  const statTable = teamSection.statistics?.find((stat) => Array.isArray(stat.athletes));
   if (!statTable) return [];
 
-  const keyIndex = statTable.keys?.reduce((acc, key, index) => {
-    acc[key] = index;
-    return acc;
-  }, {}) ?? {};
+  const keyIndex =
+    statTable.keys?.reduce((acc, key, index) => {
+      acc[key] = index;
+      return acc;
+    }, {}) ?? {};
 
   const minutesIdx = keyIndex.minutes;
   const pointsIdx = keyIndex.points;
   const reboundsIdx = keyIndex.rebounds;
   const assistsIdx = keyIndex.assists;
+  const offensiveRebIdx = keyIndex.offensiveRebounds;
+  const defensiveRebIdx = keyIndex.defensiveRebounds;
+  const foulsIdx = keyIndex.fouls ?? keyIndex.foulsPersonal;
   const plusMinusIdx = keyIndex.plusMinus;
+  const threesIdx = keyIndex['threePointFieldGoalsMade-threePointFieldGoalsAttempted'];
 
   return (
     statTable.athletes
@@ -146,6 +150,19 @@ const parsePlayers = (boxscorePlayers = []) => {
           athlete.lastName ??
           (athlete.displayName ? athlete.displayName.split(' ').slice(-1)[0] : athlete.shortName ?? 'Player');
 
+        const parseMadeAttempted = (value = '') => {
+          if (typeof value !== 'string') return { made: 0, attempted: 0 };
+          const [madeRaw, attemptedRaw] = value.split('-');
+          const made = Number(madeRaw);
+          const attempted = Number(attemptedRaw);
+          return {
+            made: Number.isFinite(made) ? made : 0,
+            attempted: Number.isFinite(attempted) ? attempted : 0,
+          };
+        };
+
+        const threesStat = threesIdx !== undefined ? parseMadeAttempted(stats[threesIdx]) : { made: 0, attempted: 0 };
+
         return {
           id: athlete.id ?? lastName,
           name: lastName,
@@ -153,8 +170,13 @@ const parsePlayers = (boxscorePlayers = []) => {
           minutesValue,
           points: pointsIdx !== undefined ? Number(stats[pointsIdx]) || 0 : 0,
           rebounds: reboundsIdx !== undefined ? Number(stats[reboundsIdx]) || 0 : 0,
+          offensiveRebounds: offensiveRebIdx !== undefined ? Number(stats[offensiveRebIdx]) || 0 : 0,
+          defensiveRebounds: defensiveRebIdx !== undefined ? Number(stats[defensiveRebIdx]) || 0 : 0,
           assists: assistsIdx !== undefined ? Number(stats[assistsIdx]) || 0 : 0,
+          fouls: foulsIdx !== undefined ? Number(stats[foulsIdx]) || 0 : 0,
           plusMinus: plusMinusIdx !== undefined ? stats[plusMinusIdx] ?? '0' : '0',
+          threePointersMade: threesStat.made,
+          threePointersAttempted: threesStat.attempted,
         };
       })
       .filter(Boolean)
@@ -163,6 +185,16 @@ const parsePlayers = (boxscorePlayers = []) => {
         return b.points - a.points;
       }) ?? []
   );
+};
+
+const parsePlayers = (boxscorePlayers = []) => {
+  const thunderSection = boxscorePlayers.find((team) => team.team?.id === TEAM_ID);
+  const opponentSection = boxscorePlayers.find((team) => team.team?.id !== TEAM_ID);
+
+  return {
+    thunder: parseTeamPlayers(thunderSection),
+    opponent: parseTeamPlayers(opponentSection),
+  };
 };
 
 export async function fetchSchedule() {

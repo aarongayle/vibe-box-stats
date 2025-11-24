@@ -31,7 +31,53 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
     ? `${status.displayClock || 'LIVE'} • Q${status.period ?? '—'}`
     : status.detail || fallbackGame?.status?.shortDetail || 'Final';
 
-  const players = summary?.players ?? [];
+  const players = summary?.players ?? { thunder: [], opponent: [] };
+  const thunderPlayers = players.thunder ?? [];
+  const opponentPlayers = players.opponent ?? [];
+  const hasAnyPlayers = thunderPlayers.length > 0 || opponentPlayers.length > 0;
+
+  const renderTeamSection = (teamLabel, teamPlayers) => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">{teamLabel}</p>
+        <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-zinc-600">BOX</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-[0.3em] text-zinc-500">
+              <th className="py-2 font-sans">Player</th>
+              <th className="py-2 text-right font-mono">MIN</th>
+              <th className="py-2 text-right font-mono">PTS</th>
+              <th className="py-2 text-right font-mono">3PM-A</th>
+              <th className="py-2 text-right font-mono">OREB</th>
+              <th className="py-2 text-right font-mono">DREB</th>
+              <th className="py-2 text-right font-mono">AST</th>
+              <th className="py-2 text-right font-mono">PF</th>
+              <th className="py-2 text-right font-mono">+/-</th>
+            </tr>
+          </thead>
+          <tbody>
+            {teamPlayers.map((player) => (
+              <tr key={player.id} className="border-t border-zinc-900/70">
+                <td className="py-2 pr-4 font-sans text-zinc-100">{player.name}</td>
+                <td className="py-2 text-right font-mono text-zinc-100">{player.minutes}</td>
+                <td className="py-2 text-right font-mono text-zinc-100">{player.points}</td>
+                <td className="py-2 text-right font-mono text-zinc-100">
+                  {player.threePointersMade}-{player.threePointersAttempted}
+                </td>
+                <td className="py-2 text-right font-mono text-zinc-100">{player.offensiveRebounds}</td>
+                <td className="py-2 text-right font-mono text-zinc-100">{player.defensiveRebounds}</td>
+                <td className="py-2 text-right font-mono text-zinc-100">{player.assists}</td>
+                <td className="py-2 text-right font-mono text-zinc-100">{player.fouls}</td>
+                <td className="py-2 text-right font-mono text-zinc-100">{player.plusMinus}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   const renderTable = () => {
     if (loading) {
@@ -42,7 +88,7 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
       );
     }
 
-    if (!players.length) {
+    if (!hasAnyPlayers) {
       return (
         <div className="py-10 text-center font-mono text-sm text-zinc-500">
           Box score will populate once the game goes live.
@@ -50,32 +96,16 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
       );
     }
 
+    const opponentLabel =
+      summary?.opponent?.shortName ??
+      fallbackGame?.opponent?.shortName ??
+      summary?.opponent?.abbreviation ??
+      'Opponent';
+
     return (
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead>
-            <tr className="text-left text-[11px] uppercase tracking-[0.3em] text-zinc-500">
-              <th className="py-2 font-sans">Player</th>
-              <th className="py-2 text-right font-mono">MIN</th>
-              <th className="py-2 text-right font-mono">PTS</th>
-              <th className="py-2 text-right font-mono">REB</th>
-              <th className="py-2 text-right font-mono">AST</th>
-              <th className="py-2 text-right font-mono">+/-</th>
-            </tr>
-          </thead>
-          <tbody>
-            {players.map((player) => (
-              <tr key={player.id} className="border-t border-zinc-900/70">
-                <td className="py-2 pr-4 font-sans text-zinc-100">{player.name}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.minutes}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.points}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.rebounds}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.assists}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.plusMinus}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="space-y-10">
+        {thunderPlayers.length > 0 && renderTeamSection('Thunder', thunderPlayers)}
+        {opponentPlayers.length > 0 && renderTeamSection(opponentLabel, opponentPlayers)}
       </div>
     );
   };
