@@ -349,21 +349,8 @@ export async function fetchSchedule(teamId) {
   const events = (data?.events ?? []).map((event) => normalizeScheduleEvent(event, teamId));
   
   // Extract team record from top-level team data (overall season record)
-  // Try multiple possible locations for team data
   const teamData = data?.team || data?.teams?.[0];
-  let teamRecord = null;
-  
-  if (teamData) {
-    // Try to get record from team data directly
-    teamRecord = getRecordSummary(teamData);
-    
-    // If not found, try to get from team.record or team.records
-    if (!teamRecord && teamData.record) {
-      const records = Array.isArray(teamData.record) ? teamData.record : [teamData.record];
-      const preferred = records.find((entry) => entry.type === 'total' || entry.abbreviation === 'YTD');
-      teamRecord = preferred?.displayValue || records[0]?.displayValue || null;
-    }
-  }
+  const teamRecord = teamData?.recordSummary || null;
   
   return {
     events,
