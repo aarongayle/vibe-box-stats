@@ -346,7 +346,16 @@ export async function fetchSchedule(teamId) {
     ? `/schedule?teamId=${encodeURIComponent(teamId)}` 
     : `${ESPN_BASE_URL}/teams/${teamId}/schedule`;
   const data = await httpGet(path);
-  return (data?.events ?? []).map((event) => normalizeScheduleEvent(event, teamId));
+  const events = (data?.events ?? []).map((event) => normalizeScheduleEvent(event, teamId));
+  
+  // Extract team record from top-level team data (overall season record)
+  const teamData = data?.team || data?.teams?.[0];
+  const teamRecord = teamData?.recordSummary || null;
+  
+  return {
+    events,
+    teamRecord,
+  };
 }
 
 export async function fetchGameSummary(gameId, teamId) {
