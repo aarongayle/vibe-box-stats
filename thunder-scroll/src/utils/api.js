@@ -153,6 +153,7 @@ const parseTeamPlayers = (teamSection) => {
         
         const isStarter = row.starter ?? false;
         const isOnCourt = row.onCourt ?? false;
+        const isEjected = athlete.ejected ?? row.ejected ?? false;
 
         const parseMadeAttempted = (value = '') => {
           if (typeof value !== 'string') return { made: 0, attempted: 0 };
@@ -173,6 +174,7 @@ const parseTeamPlayers = (teamSection) => {
           displayName: athlete.displayName,
           isStarter,
           isOnCourt,
+          ejected: isEjected,
           minutes: minutesDisplay,
           minutesValue,
           points: pointsIdx !== undefined ? Number(stats[pointsIdx]) || 0 : 0,
