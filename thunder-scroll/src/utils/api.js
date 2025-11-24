@@ -290,6 +290,58 @@ const parseInjuries = (injuriesData) => {
   };
 };
 
+const calculateGameStats = (plays, currentPeriod) => {
+  const teamStats = {};
+
+  const getStats = (id) => {
+    if (!teamStats[id]) {
+      teamStats[id] = { fouls: 0, challengeUsed: false, timeoutsUsed: 0 };
+    }
+    return teamStats[id];
+  };
+
+  if (!plays || !Array.isArray(plays)) return teamStats;
+
+  plays.forEach((play) => {
+    const teamId = play.team?.id;
+    if (!teamId) return;
+
+    const stats = getStats(teamId);
+
+    // Challenge usage (approximate based on play text)
+    if (play.text && play.text.toLowerCase().includes("coach's challenge")) {
+      stats.challengeUsed = true;
+    }
+
+    // Timeouts used
+    if (play.type?.text?.toLowerCase().includes('timeout')) {
+      stats.timeoutsUsed++;
+    }
+
+    // Fouls in current period
+    if (play.period?.number === currentPeriod) {
+      const typeText = play.type?.text?.toLowerCase() || '';
+      if (typeText.includes('foul')) {
+        // Exclude offensive, technical, etc. for bonus calculation purposes
+        if (
+          !typeText.includes('offensive') &&
+          !typeText.includes('technical') &&
+          !typeText.includes('defensive 3-seconds') &&
+          !typeText.includes('flagrant') // Flagrant usually counts, but let's double check. Yes, flagrant counts as team foul.
+        ) {
+           // Keep flagrant, it counts towards penalty.
+           // What about 'clear path'? Counts.
+           stats.fouls++;
+        } else if (typeText.includes('flagrant') || typeText.includes('clear path')) {
+            stats.fouls++;
+        }
+      }
+    }
+  });
+
+  return teamStats;
+};
+
 export async function fetchSchedule() {
   const path = USE_PROXY ? '/schedule' : `${ESPN_BASE_URL}/teams/${TEAM_ID}/schedule`;
   const data = await httpGet(path);
@@ -318,6 +370,13 @@ export async function fetchGameSummary(gameId) {
   const allPlayers = [...parsedPlayers.thunder, ...parsedPlayers.opponent];
   calculateOnCourtPlayers(allPlayers, data?.plays);
 
+  const computedStats = calculateGameStats(data?.plays, status.period);
+  const thunderId = thunder?.id || thunder?.team?.id;
+  const opponentId = opponent?.id || opponent?.team?.id;
+  
+  const thunderStats = (thunderId && computedStats[thunderId]) || { fouls: 0, challengeUsed: false, timeoutsUsed: 0 };
+  const opponentStats = (opponentId && computedStats[opponentId]) || { fouls: 0, challengeUsed: false, timeoutsUsed: 0 };
+
   return {
     gameId,
     status: {
@@ -332,6 +391,12 @@ export async function fetchGameSummary(gameId) {
     thunder: {
       score: toNumber(thunder?.score?.value ?? thunder?.score?.displayValue ?? thunder?.score),
       record: getRecordSummary(thunder),
+      stats: {
+        fouls: thunderStats.fouls,
+        challengeUsed: thunderStats.challengeUsed,
+        timeoutsUsed: thunderStats.timeoutsUsed,
+        timeoutsRemaining: thunder?.timeoutsRemaining ?? null, // Try to get from API if available
+      }
     },
     opponent: opponent
       ? {
@@ -341,6 +406,12 @@ export async function fetchGameSummary(gameId) {
           logo: pickLogo(opponentTeam),
           score: toNumber(opponent?.score?.value ?? opponent?.score?.displayValue ?? opponent?.score),
           record: getRecordSummary(opponent),
+          stats: {
+            fouls: opponentStats.fouls,
+            challengeUsed: opponentStats.challengeUsed,
+            timeoutsUsed: opponentStats.timeoutsUsed,
+            timeoutsRemaining: opponent?.timeoutsRemaining ?? null,
+          }
         }
       : null,
     players: parsedPlayers,

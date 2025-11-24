@@ -41,6 +41,50 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
   const opponentPlayers = players.opponent ?? [];
   const hasAnyPlayers = thunderPlayers.length > 0 || opponentPlayers.length > 0;
 
+  const thunderStats = summary?.thunder?.stats;
+  const opponentStats = summary?.opponent?.stats;
+
+  const renderTeamStats = (stats, alignRight = false) => {
+    if (!stats) return null;
+    const rowClass = `flex items-center gap-2 ${alignRight ? 'justify-end' : 'justify-start'}`;
+
+    // Estimate timeouts
+    let timeoutsDisplay = '-';
+    if (stats.timeoutsRemaining !== null && stats.timeoutsRemaining !== undefined) {
+      timeoutsDisplay = stats.timeoutsRemaining;
+    } else if (stats.timeoutsUsed !== undefined) {
+      // Rough estimate (7 per game standard)
+      timeoutsDisplay = Math.max(0, 7 - stats.timeoutsUsed);
+    }
+    
+    // If game is final, timeouts usually meaningless (0), but if computed from used, shows remaining.
+    // For completed games, maybe hide or show 0?
+    if (status.state === 'post') {
+       timeoutsDisplay = 0;
+    }
+
+    const isBonus = stats.fouls >= 5;
+
+    return (
+      <div className={`mt-3 flex flex-col gap-1 text-[10px] font-mono ${alignRight ? 'items-end' : 'items-start'}`}>
+        <div className={rowClass}>
+          <span className="uppercase tracking-wider text-zinc-600">Fouls</span>
+          <span className={isBonus ? 'font-bold text-orange-400' : 'text-zinc-300'}>{stats.fouls}</span>
+        </div>
+        <div className={rowClass}>
+          <span className="uppercase tracking-wider text-zinc-600">Timeouts</span>
+          <span className="text-zinc-300">{timeoutsDisplay}</span>
+        </div>
+        <div className={rowClass}>
+          <span className="uppercase tracking-wider text-zinc-600">Challenge</span>
+          <span className={stats.challengeUsed ? 'text-zinc-500 decoration-zinc-600' : 'text-emerald-400'}>
+            {stats.challengeUsed ? 'Used' : 'Rem'}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   const renderTeamSection = (teamLabel, teamPlayers) => (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -283,6 +327,7 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
             <p className={`font-mono text-3xl font-semibold ${isLive ? 'text-thunder' : 'text-zinc-100'}`}>
               {thunderScore ?? '--'}
             </p>
+            {renderTeamStats(thunderStats)}
           </div>
           <div className="text-center font-mono text-xs uppercase tracking-[0.3em] text-zinc-600">vs</div>
           <div className="text-right">
@@ -292,6 +337,7 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
             <p className={`font-mono text-3xl font-semibold ${isLive ? 'text-thunder' : 'text-zinc-100'}`}>
               {opponentScore ?? '--'}
             </p>
+            {renderTeamStats(opponentStats, true)}
           </div>
         </div>
         <div className="text-right font-mono text-xs text-zinc-500">{clockLabel}</div>
