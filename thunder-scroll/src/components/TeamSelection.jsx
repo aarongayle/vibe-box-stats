@@ -22,8 +22,16 @@ const TeamSelection = () => {
               <Link
                 key={team.slug}
                 to={`/${team.slug}`}
-                className="flex flex-col items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-6 transition-colors hover:bg-zinc-900/50 hover:border-zinc-700"
+                className="flex flex-col items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-6 transition-colors hover:bg-zinc-900/50 hover:border-zinc-700"
               >
+                {team.logo && (
+                  <img
+                    src={team.logo}
+                    alt={team.shortName}
+                    className="h-16 w-16 object-contain"
+                    loading="lazy"
+                  />
+                )}
                 <span className="font-sans text-lg font-semibold text-zinc-100">{team.shortName}</span>
                 <span className="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500">{team.abbreviation}</span>
               </Link>
