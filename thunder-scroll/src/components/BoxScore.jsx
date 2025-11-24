@@ -54,7 +54,6 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
               <th className="py-2 pr-6 font-sans">Player</th>
               <th className="py-2 px-3 text-right font-mono">MIN</th>
               <th className="py-2 px-3 text-right font-mono">PTS</th>
-              <th className="py-2 px-3 text-right font-mono">3PM-A</th>
               {reboundsExpanded ? (
                 <>
                   <th
@@ -82,6 +81,7 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
                 </th>
               )}
               <th className="py-2 px-3 text-right font-mono">AST</th>
+              <th className="py-2 px-3 text-right font-mono">3P</th>
               {stocksExpanded ? (
                 <>
                   <th
@@ -105,7 +105,7 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
                   onClick={() => setStocksExpanded(true)}
                   title="Click to expand"
                 >
-                  STOCKS
+                  STK
                 </th>
               )}
               <th className="py-2 px-3 text-right font-mono">PF</th>
@@ -116,12 +116,13 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
               const isStarter = player.isStarter;
               const textColor = isStarter ? 'text-zinc-100' : 'text-zinc-500';
               const nameColor = isStarter ? 'text-zinc-100 font-medium' : 'text-zinc-400';
+              const isEjected = player.ejected ?? false;
 
               return (
                 <tr key={player.id} className="border-t border-zinc-900/70">
                   <td className={`py-2.5 pr-6 font-sans ${nameColor}`}>
                     <div className="flex items-center gap-2">
-                      <span>{player.name}</span>
+                      <span className={isEjected ? 'line-through' : ''}>{player.name}</span>
                       {player.isOnCourt && (
                         <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-zinc-800 text-[10px] font-bold text-emerald-400">
                           C
@@ -131,9 +132,6 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
                   </td>
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.minutes}</td>
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.points}</td>
-                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
-                    {player.threePointersMade}-{player.threePointersAttempted}
-                  </td>
                   {reboundsExpanded ? (
                     <>
                       <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.offensiveRebounds}</td>
@@ -145,6 +143,9 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
                     </td>
                   )}
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.assists}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
+                    {player.threePointersMade}-{player.threePointersAttempted}
+                  </td>
                   {stocksExpanded ? (
                     <>
                       <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.steals ?? 0}</td>
