@@ -21,6 +21,9 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
 
   const status = summary?.status ?? fallbackGame?.status ?? {};
   const isLive = status?.state === 'in';
+  const context = summary?.context ?? null;
+  const thunderContext = context?.thunder ?? null;
+  const opponentContext = context?.opponent ?? null;
 
   const opponent = summary?.opponent ?? fallbackGame?.opponent ?? null;
   const thunderScore = summary?.thunder?.score ?? fallbackGame?.thunderScore ?? null;
@@ -35,6 +38,7 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
   const clockLabel = isLive
     ? `${status.displayClock || 'LIVE'} • Q${status.period ?? '—'}`
     : status.detail || fallbackGame?.status?.shortDetail || 'Final';
+  const currentPeriod = status?.period ?? fallbackGame?.status?.period ?? null;
 
   const players = summary?.players ?? { thunder: [], opponent: [] };
   const thunderPlayers = players.thunder ?? [];
@@ -197,6 +201,88 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
     );
   };
 
+  const formatTimeoutsLabel = (timeouts) => {
+    if (!timeouts) return null;
+    if (typeof timeouts.remaining === 'number') return `${timeouts.remaining}`;
+    return null;
+  };
+
+  const buildFoulLine = (fouls) => {
+    if (!fouls) return null;
+    const periodLabel = currentPeriod ? `Q${currentPeriod}` : 'Q–';
+    const foulValue = typeof fouls.quarter === 'number' ? fouls.quarter : fouls.total;
+    const foulsText = typeof foulValue === 'number' ? `${periodLabel} PF ${foulValue}` : null;
+    const toGive =
+      typeof fouls.foulsToGive === 'number' && fouls.foulsToGive >= 0 ? `${fouls.foulsToGive} to give` : null;
+    if (!foulsText && !toGive) return null;
+    return [foulsText, toGive].filter(Boolean).join(' · ');
+  };
+
+  const formatBonusLabel = (fouls) => {
+    if (!fouls?.bonusState || fouls.bonusState === 'NONE') return null;
+    if (fouls.bonusState === 'DOUBLE') return 'Double bonus';
+    if (fouls.bonusState === 'SINGLE') return 'Bonus';
+    return fouls.bonusState;
+  };
+
+  const renderTeamContext = (teamLabel, teamContext, alignRight = false) => {
+    if (!teamContext) return null;
+    const timeoutsLabel = formatTimeoutsLabel(teamContext.timeouts);
+    const foulLine = buildFoulLine(teamContext.fouls);
+    const bonusLabel = formatBonusLabel(teamContext.fouls);
+    const hasChallengeInfo = typeof teamContext.challengesUsed === 'number';
+    const challengeUsed = hasChallengeInfo ? teamContext.challengesUsed > 0 : false;
+
+    if (!timeoutsLabel && !foulLine && !bonusLabel && !hasChallengeInfo) {
+      return null;
+    }
+
+    return (
+      <div
+        className={`flex flex-col gap-1.5 rounded-2xl border border-zinc-800/60 bg-zinc-950/40 p-3 ${
+          alignRight ? 'text-right' : ''
+        }`}
+      >
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.3em] text-zinc-500">
+          <span>{teamLabel}</span>
+          {hasChallengeInfo && (
+            <span className={`text-[10px] font-semibold ${challengeUsed ? 'text-rose-400' : 'text-emerald-400'}`}>
+              {challengeUsed ? 'Challenge used' : 'Challenge ready'}
+            </span>
+          )}
+        </div>
+        <div
+          className={`flex flex-wrap items-center ${alignRight ? 'justify-end' : ''} gap-x-4 gap-y-1 font-mono text-xs text-zinc-300`}
+        >
+          {timeoutsLabel && <span>TO {timeoutsLabel}</span>}
+          {foulLine && <span>{foulLine}</span>}
+        </div>
+        {bonusLabel && (
+          <span className="text-[11px] font-mono uppercase tracking-[0.3em] text-zinc-500">{bonusLabel}</span>
+        )}
+      </div>
+    );
+  };
+
+  const renderGameContext = () => {
+    if (!thunderContext && !opponentContext) return null;
+
+    const thunderLabel = 'OKC';
+    const opponentLabel = opponent?.abbreviation ?? fallbackGame?.opponent?.abbreviation ?? 'OPP';
+
+    const thunderContent = renderTeamContext(thunderLabel, thunderContext);
+    const opponentContent = renderTeamContext(opponentLabel, opponentContext, true);
+
+    if (!thunderContent && !opponentContent) return null;
+
+    return (
+      <div className="grid gap-3 sm:grid-cols-2">
+        {thunderContent}
+        {opponentContent}
+      </div>
+    );
+  };
+
   const renderInjuries = () => {
     const injuries = summary?.injuries;
     if (loading || !injuries) return null;
@@ -296,6 +382,8 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
         </div>
         <div className="text-right font-mono text-xs text-zinc-500">{clockLabel}</div>
       </div>
+
+      {renderGameContext()}
 
       <div className="rounded-2xl border border-zinc-800 px-4 py-2">{renderTable()}</div>
       {renderInjuries()}

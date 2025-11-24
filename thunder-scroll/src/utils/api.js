@@ -1,5 +1,6 @@
 export const TEAM_ID = '25';
 const ESPN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
+const ESPN_CORE_BASE_URL = 'https://sports.core.api.espn.com/v2/sports/basketball/nba';
 
 const resolveApiBase = () => {
   const envValue = import.meta.env.VITE_API_BASE;
@@ -300,7 +301,14 @@ export async function fetchGameSummary(gameId) {
   const basePath = USE_PROXY
     ? `/summary?gameId=${encodeURIComponent(gameId)}`
     : `${ESPN_BASE_URL}/summary?event=${gameId}`;
-  const data = await httpGet(basePath);
+
+  const [data, situationData] = await Promise.all([
+    httpGet(basePath),
+    fetchGameSituation(gameId).catch((error) => {
+      console.warn('Failed to fetch game situation', error);
+      return null;
+    }),
+  ]);
   const competition = data?.header?.competitions?.[0];
 
   if (!competition) {
@@ -313,10 +321,16 @@ export async function fetchGameSummary(gameId) {
   const opponent = competitors.find((team) => team.id !== TEAM_ID && team.team?.id !== TEAM_ID);
   const thunderTeam = thunder?.team ?? thunder;
   const opponentTeam = opponent?.team ?? opponent;
+  const thunderTeamId = thunderTeam?.id ?? thunder?.id ?? TEAM_ID;
+  const opponentTeamId = opponentTeam?.id ?? opponent?.id ?? null;
+  const isThunderHome = thunder?.homeAway === 'home';
 
   const parsedPlayers = parsePlayers(data?.boxscore?.players);
   const allPlayers = [...parsedPlayers.thunder, ...parsedPlayers.opponent];
   calculateOnCourtPlayers(allPlayers, data?.plays);
+  const challengeCounts = deriveChallengeCounts(data?.plays);
+  const thunderChallenges = challengeCounts[thunderTeamId] ?? 0;
+  const opponentChallenges = opponentTeamId ? challengeCounts[opponentTeamId] ?? 0 : 0;
 
   return {
     gameId,
@@ -330,11 +344,15 @@ export async function fetchGameSummary(gameId) {
       period: competition.status?.period ?? 0,
     },
     thunder: {
+      id: thunderTeamId,
+      isHome: isThunderHome,
       score: toNumber(thunder?.score?.value ?? thunder?.score?.displayValue ?? thunder?.score),
       record: getRecordSummary(thunder),
     },
     opponent: opponent
       ? {
+          id: opponentTeamId,
+          isHome: !isThunderHome,
           name: opponentTeam?.displayName ?? opponentTeam?.name ?? 'Opponent',
           shortName: opponentTeam?.shortDisplayName ?? opponentTeam?.abbreviation ?? opponentTeam?.name ?? 'OPP',
           abbreviation: opponentTeam?.abbreviation ?? opponentTeam?.shortDisplayName ?? 'OPP',
@@ -343,6 +361,22 @@ export async function fetchGameSummary(gameId) {
           record: getRecordSummary(opponent),
         }
       : null,
+    context: {
+      thunder: {
+        timeouts: mapTimeouts(
+          isThunderHome ? situationData?.homeTimeouts ?? null : situationData?.awayTimeouts ?? null
+        ),
+        fouls: mapFouls(isThunderHome ? situationData?.homeFouls ?? null : situationData?.awayFouls ?? null),
+        challengesUsed: thunderChallenges,
+      },
+      opponent: {
+        timeouts: mapTimeouts(
+          isThunderHome ? situationData?.awayTimeouts ?? null : situationData?.homeTimeouts ?? null
+        ),
+        fouls: mapFouls(isThunderHome ? situationData?.awayFouls ?? null : situationData?.homeFouls ?? null),
+        challengesUsed: opponentChallenges,
+      },
+    },
     players: parsedPlayers,
     injuries: parseInjuries(data?.injuries),
     fetchedAt: new Date().toISOString(),
@@ -359,3 +393,42 @@ export function selectActiveGame(games) {
 
   return finals.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
 }
+
+async function fetchGameSituation(gameId) {
+  if (!gameId) return null;
+  const path = USE_PROXY
+    ? `/situation?gameId=${encodeURIComponent(gameId)}`
+    : `${ESPN_CORE_BASE_URL}/events/${gameId}/competitions/${gameId}/situation?lang=en&region=us`;
+  return httpGet(path);
+}
+
+const mapTimeouts = (payload) => {
+  if (!payload) return null;
+  return {
+    used: toNumber(payload.timeoutsCurrent),
+    remaining: toNumber(payload.timeoutsRemainingCurrent),
+  };
+};
+
+const mapFouls = (payload) => {
+  if (!payload) return null;
+  return {
+    total: toNumber(payload.teamFouls),
+    quarter: toNumber(payload.teamFoulsCurrent),
+    foulsToGive: toNumber(payload.foulsToGive),
+    bonusState: payload.bonusState ?? null,
+  };
+};
+
+const deriveChallengeCounts = (plays = []) => {
+  if (!Array.isArray(plays) || !plays.length) return {};
+
+  return plays.reduce((acc, play) => {
+    const isChallengePlay = play?.type?.text === 'Challenge' || play?.type?.id === '213' || /challenge/i.test(play?.text ?? '');
+    if (!isChallengePlay) return acc;
+    const teamId = play?.team?.id;
+    if (!teamId) return acc;
+    acc[teamId] = (acc[teamId] || 0) + 1;
+    return acc;
+  }, {});
+};
