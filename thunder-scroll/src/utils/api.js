@@ -1,5 +1,14 @@
 export const TEAM_ID = '25';
-const BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
+const ESPN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
+
+const resolveApiBase = () => {
+  const envValue = import.meta.env.VITE_API_BASE;
+  const rawValue = typeof envValue === 'string' ? envValue.trim() : '/api';
+  return rawValue.replace(/\/$/, '');
+};
+
+const API_BASE = resolveApiBase();
+const USE_PROXY = API_BASE.length > 0;
 
 const defaultFetchOptions = {
   headers: {
@@ -38,7 +47,17 @@ const getRecordSummary = (competitor) => {
   return preferred?.displayValue || records[0]?.displayValue || null;
 };
 
-const httpGet = async (url) => {
+const isAbsoluteUrl = (value) => /^https?:\/\//i.test(value);
+
+const httpGet = async (path) => {
+  if (!USE_PROXY && !isAbsoluteUrl(path)) {
+    throw new Error('Relative URL requested without an API proxy configured');
+  }
+
+  const url = isAbsoluteUrl(path)
+    ? path
+    : `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+
   const response = await fetch(url, defaultFetchOptions);
   if (!response.ok) {
     throw new Error(`ESPN request failed (${response.status})`);
@@ -147,12 +166,16 @@ const parsePlayers = (boxscorePlayers = []) => {
 };
 
 export async function fetchSchedule() {
-  const data = await httpGet(`${BASE_URL}/teams/${TEAM_ID}/schedule`);
+  const path = USE_PROXY ? '/schedule' : `${ESPN_BASE_URL}/teams/${TEAM_ID}/schedule`;
+  const data = await httpGet(path);
   return (data?.events ?? []).map(normalizeScheduleEvent);
 }
 
 export async function fetchGameSummary(gameId) {
-  const data = await httpGet(`${BASE_URL}/summary?event=${gameId}`);
+  const basePath = USE_PROXY
+    ? `/summary?gameId=${encodeURIComponent(gameId)}`
+    : `${ESPN_BASE_URL}/summary?event=${gameId}`;
+  const data = await httpGet(basePath);
   const competition = data?.header?.competitions?.[0];
 
   if (!competition) {
