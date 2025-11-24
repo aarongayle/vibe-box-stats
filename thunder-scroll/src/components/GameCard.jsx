@@ -22,6 +22,7 @@ const GameCard = ({ game, isActive }) => {
       className={`flex min-w-[220px] flex-col gap-3 rounded-2xl border border-zinc-800 px-4 py-3 transition-colors ${
         isActive ? 'bg-zinc-900/40' : 'bg-transparent'
       }`}
+      data-game-id={game.id}
     >
       <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.3em] text-zinc-500">
         <span>{isLive ? 'Today' : `${weekdayLabel} ${dayLabel}`}</span>
