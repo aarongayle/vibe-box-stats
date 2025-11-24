@@ -10,9 +10,6 @@ const API_BASE = resolveApiBase();
 const USE_PROXY = API_BASE.length > 0;
 
 const defaultFetchOptions = {
-  headers: {
-    'Cache-Control': 'no-cache',
-  },
   cache: 'no-store',
 };
 
