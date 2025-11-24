@@ -197,6 +197,70 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
     );
   };
 
+  const renderInjuries = () => {
+    const injuries = summary?.injuries;
+    if (loading || !injuries) return null;
+
+    const hasThunderInjuries = injuries.thunder?.length > 0;
+    const hasOpponentInjuries = injuries.opponent?.length > 0;
+
+    if (!hasThunderInjuries && !hasOpponentInjuries) return null;
+
+    const renderInjuryTable = (teamLabel, teamInjuries) => {
+      if (!teamInjuries || teamInjuries.length === 0) return null;
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">{teamLabel} Injuries</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-[0.3em] text-zinc-500">
+                  <th className="py-2 pr-6 font-sans">Player</th>
+                  <th className="py-2 px-3 font-mono">Side</th>
+                  <th className="py-2 px-3 font-mono">Type</th>
+                  <th className="py-2 px-3 font-mono">Detail</th>
+                  <th className="py-2 px-3 text-right font-mono">Return</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamInjuries.map((injury) => (
+                  <tr key={injury.id} className="border-t border-zinc-900/70">
+                    <td className="py-2.5 pr-6 font-sans text-zinc-400">
+                      <span className="font-medium text-zinc-300">{injury.name}</span>
+                      {injury.status && <span className="ml-2 text-[10px] uppercase tracking-wider text-zinc-600">({injury.status})</span>}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-zinc-500">{injury.details.side || '-'}</td>
+                    <td className="py-2.5 px-3 font-mono text-zinc-500">{injury.details.type || '-'}</td>
+                    <td className="py-2.5 px-3 font-mono text-zinc-500">{injury.details.detail || '-'}</td>
+                    <td className="py-2.5 px-3 text-right font-mono text-zinc-500">
+                      {injury.details.formattedReturnDate || injury.details.returnDate || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    };
+
+    const opponentLabel =
+      summary?.opponent?.shortName ??
+      fallbackGame?.opponent?.shortName ??
+      summary?.opponent?.abbreviation ??
+      'Opponent';
+
+    return (
+      <div className="space-y-8 pt-6 mt-6 border-t border-zinc-800">
+        {renderInjuryTable('Thunder', injuries.thunder)}
+        {renderInjuryTable(opponentLabel, injuries.opponent)}
+      </div>
+    );
+  };
+
   return (
     <section className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -234,6 +298,7 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
       </div>
 
       <div className="rounded-2xl border border-zinc-800 px-4 py-2">{renderTable()}</div>
+      {renderInjuries()}
     </section>
   );
 };

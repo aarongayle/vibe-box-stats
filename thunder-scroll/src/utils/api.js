@@ -207,6 +207,7 @@ const parsePlayers = (boxscorePlayers = []) => {
   };
 };
 
+
 const calculateOnCourtPlayers = (allPlayers, plays) => {
   if (!plays || !plays.length) return;
 
@@ -241,6 +242,52 @@ const calculateOnCourtPlayers = (allPlayers, plays) => {
   allPlayers.forEach((p) => {
     p.isOnCourt = activePlayers.has(p.id);
   });
+};
+
+const parseInjuries = (injuriesData) => {
+  if (!Array.isArray(injuriesData)) return { thunder: [], opponent: [] };
+
+  const thunderSection = injuriesData.find((item) => item.team?.id === TEAM_ID);
+  const opponentSection = injuriesData.find((item) => item.team?.id !== TEAM_ID);
+
+  const mapInjury = (injury) => {
+    const athlete = injury.athlete || {};
+    const details = injury.details || {};
+    
+    let returnDate = details.returnDate;
+    if (returnDate) {
+      try {
+         const date = new Date(returnDate);
+         if (!isNaN(date.getTime())) {
+             returnDate = date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+             });
+         }
+      } catch (e) {
+        // keep original
+      }
+    }
+
+    return {
+      id: athlete.id || athlete.displayName,
+      name: athlete.displayName || athlete.name || 'Unknown',
+      status: injury.status,
+      details: {
+        side: details.side,
+        type: details.type,
+        detail: details.detail,
+        returnDate: details.returnDate,
+        formattedReturnDate: returnDate
+      },
+    };
+  };
+
+  return {
+    thunder: thunderSection?.injuries?.map(mapInjury) || [],
+    opponent: opponentSection?.injuries?.map(mapInjury) || [],
+  };
 };
 
 export async function fetchSchedule() {
@@ -297,6 +344,7 @@ export async function fetchGameSummary(gameId) {
         }
       : null,
     players: parsedPlayers,
+    injuries: parseInjuries(data?.injuries),
     fetchedAt: new Date().toISOString(),
   };
 }
