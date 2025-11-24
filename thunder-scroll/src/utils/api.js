@@ -170,6 +170,7 @@ const parseTeamPlayers = (teamSection) => {
         return {
           id: athlete.id ?? lastName,
           name: lastName,
+          displayName: athlete.displayName,
           isStarter,
           isOnCourt,
           minutes: minutesDisplay,
@@ -204,6 +205,42 @@ const parsePlayers = (boxscorePlayers = []) => {
   };
 };
 
+const calculateOnCourtPlayers = (allPlayers, plays) => {
+  if (!plays || !plays.length) return;
+
+  // Map name to player ID
+  const playerMap = new Map();
+  const activePlayers = new Set();
+
+  allPlayers.forEach((p) => {
+    if (p.displayName) playerMap.set(p.displayName, p.id);
+    if (p.isStarter) activePlayers.add(p.id);
+  });
+
+  plays.forEach((play) => {
+    if (play.type?.text === 'Substitution' || play.type?.id === '584') {
+      const text = play.text;
+      // Regex to capture names: "Player A enters the game for Player B"
+      const match = text.match(/^(.*?) enters the game for (.*?)$/);
+      if (match) {
+        const enteringName = match[1];
+        const leavingName = match[2];
+
+        const enteringId = playerMap.get(enteringName);
+        const leavingId = playerMap.get(leavingName);
+
+        if (enteringId) activePlayers.add(enteringId);
+        if (leavingId) activePlayers.delete(leavingId);
+      }
+    }
+  });
+
+  // Update players
+  allPlayers.forEach((p) => {
+    p.isOnCourt = activePlayers.has(p.id);
+  });
+};
+
 export async function fetchSchedule() {
   const path = USE_PROXY ? '/schedule' : `${ESPN_BASE_URL}/teams/${TEAM_ID}/schedule`;
   const data = await httpGet(path);
@@ -227,6 +264,10 @@ export async function fetchGameSummary(gameId) {
   const opponent = competitors.find((team) => team.id !== TEAM_ID && team.team?.id !== TEAM_ID);
   const thunderTeam = thunder?.team ?? thunder;
   const opponentTeam = opponent?.team ?? opponent;
+
+  const parsedPlayers = parsePlayers(data?.boxscore?.players);
+  const allPlayers = [...parsedPlayers.thunder, ...parsedPlayers.opponent];
+  calculateOnCourtPlayers(allPlayers, data?.plays);
 
   return {
     gameId,
@@ -253,7 +294,7 @@ export async function fetchGameSummary(gameId) {
           record: getRecordSummary(opponent),
         }
       : null,
-    players: parsePlayers(data?.boxscore?.players),
+    players: parsedPlayers,
     fetchedAt: new Date().toISOString(),
   };
 }
