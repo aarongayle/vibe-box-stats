@@ -134,7 +134,8 @@ const parseTeamPlayers = (teamSection) => {
   const offensiveRebIdx = keyIndex.offensiveRebounds;
   const defensiveRebIdx = keyIndex.defensiveRebounds;
   const foulsIdx = keyIndex.fouls ?? keyIndex.foulsPersonal;
-  const plusMinusIdx = keyIndex.plusMinus;
+  const stealsIdx = keyIndex.steals;
+  const blocksIdx = keyIndex.blocks;
   const threesIdx = keyIndex['threePointFieldGoalsMade-threePointFieldGoalsAttempted'];
 
   return (
@@ -173,8 +174,9 @@ const parseTeamPlayers = (teamSection) => {
           offensiveRebounds: offensiveRebIdx !== undefined ? Number(stats[offensiveRebIdx]) || 0 : 0,
           defensiveRebounds: defensiveRebIdx !== undefined ? Number(stats[defensiveRebIdx]) || 0 : 0,
           assists: assistsIdx !== undefined ? Number(stats[assistsIdx]) || 0 : 0,
+          steals: stealsIdx !== undefined ? Number(stats[stealsIdx]) || 0 : 0,
+          blocks: blocksIdx !== undefined ? Number(stats[blocksIdx]) || 0 : 0,
           fouls: foulsIdx !== undefined ? Number(stats[foulsIdx]) || 0 : 0,
-          plusMinus: plusMinusIdx !== undefined ? stats[plusMinusIdx] ?? '0' : '0',
           threePointersMade: threesStat.made,
           threePointersAttempted: threesStat.attempted,
         };
