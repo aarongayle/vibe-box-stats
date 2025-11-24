@@ -15,6 +15,43 @@ const LiveIndicator = () => (
   </div>
 );
 
+const renderTeamGameStats = (stats, currentPeriod, align = 'left') => {
+  if (!stats) return null;
+
+  const { timeoutsRemaining, foulsPerQuarter, hasChallenge } = stats;
+  
+  // Get fouls for current quarter
+  const currentQuarterFouls = foulsPerQuarter?.find((q) => q.period === currentPeriod)?.fouls ?? 
+                               foulsPerQuarter?.[currentPeriod - 1]?.fouls ?? null;
+  const isCloseToBonus = currentQuarterFouls !== null && currentQuarterFouls >= 4; // Bonus starts at 5 fouls
+  
+  const containerClass = align === 'right' ? 'items-end' : 'items-start';
+  const textAlignClass = align === 'right' ? 'text-right' : 'text-left';
+
+  return (
+    <div className={`mt-2 flex flex-col gap-1 ${containerClass}`}>
+      <div className={`flex flex-wrap gap-2 font-mono text-[10px] text-zinc-500 ${textAlignClass}`}>
+        {timeoutsRemaining !== null && (
+          <span className="uppercase tracking-wider">
+            {timeoutsRemaining} TO
+          </span>
+        )}
+        {currentQuarterFouls !== null && (
+          <span className={`uppercase tracking-wider ${isCloseToBonus ? 'text-amber-400 font-semibold' : ''}`}>
+            Q{currentPeriod} PF: {currentQuarterFouls}
+            {isCloseToBonus && ' ⚠'}
+          </span>
+        )}
+        {hasChallenge !== null && (
+          <span className={`uppercase tracking-wider ${hasChallenge ? 'text-emerald-400' : 'text-zinc-600'}`}>
+            {hasChallenge ? 'CH ✓' : 'CH ✗'}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const BoxScore = ({ summary, loading, fallbackGame }) => {
   const [reboundsExpanded, setReboundsExpanded] = useState(false);
   const [stocksExpanded, setStocksExpanded] = useState(false);
@@ -278,20 +315,22 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
 
       <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 items-center justify-between gap-8">
-          <div>
+          <div className="flex-1">
             <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">OKC</p>
             <p className={`font-mono text-3xl font-semibold ${isLive ? 'text-thunder' : 'text-zinc-100'}`}>
               {thunderScore ?? '--'}
             </p>
+            {isLive && renderTeamGameStats(summary?.thunder?.stats, status.period ?? 1, 'left')}
           </div>
           <div className="text-center font-mono text-xs uppercase tracking-[0.3em] text-zinc-600">vs</div>
-          <div className="text-right">
+          <div className="flex-1 text-right">
             <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
               {opponent?.abbreviation ?? fallbackGame?.opponent?.abbreviation ?? 'OPP'}
             </p>
             <p className={`font-mono text-3xl font-semibold ${isLive ? 'text-thunder' : 'text-zinc-100'}`}>
               {opponentScore ?? '--'}
             </p>
+            {isLive && renderTeamGameStats(summary?.opponent?.stats, status.period ?? 1, 'right')}
           </div>
         </div>
         <div className="text-right font-mono text-xs text-zinc-500">{clockLabel}</div>

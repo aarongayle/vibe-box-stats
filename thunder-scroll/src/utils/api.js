@@ -318,6 +318,67 @@ export async function fetchGameSummary(gameId) {
   const allPlayers = [...parsedPlayers.thunder, ...parsedPlayers.opponent];
   calculateOnCourtPlayers(allPlayers, data?.plays);
 
+  // Extract team stats: timeouts, fouls per quarter, challenge status
+  const parseTeamStats = (competitor, plays) => {
+    if (!competitor) return null;
+
+    // Timeouts remaining - check multiple possible locations
+    const timeoutsRemaining = competitor.timeouts ?? 
+                              competitor.statistics?.find(s => s.name === 'timeoutsRemaining')?.displayValue ??
+                              competitor.statistics?.find(s => s.name === 'timeouts')?.displayValue ??
+                              null;
+
+    // Fouls per quarter from linescores
+    const linescores = competitor.linescores ?? [];
+    const foulsPerQuarter = linescores.map((period, index) => ({
+      period: period.value ?? period.number ?? (index + 1),
+      fouls: period.fouls ?? period.statistics?.find(s => s.name === 'fouls')?.displayValue ?? 0,
+    }));
+
+    // Challenge status - check multiple locations and play-by-play
+    let hasChallenge = null;
+    
+    // First check direct competitor fields
+    if (competitor.challengeAvailable !== undefined) {
+      hasChallenge = competitor.challengeAvailable;
+    } else if (competitor.challengesRemaining !== undefined) {
+      hasChallenge = competitor.challengesRemaining > 0;
+    } else if (competitor.challengesUsed !== undefined) {
+      hasChallenge = competitor.challengesUsed < 1; // Assuming 1 challenge per game
+    }
+    
+    // If not found, check play-by-play for challenge usage
+    if (hasChallenge === null && plays && Array.isArray(plays)) {
+      const teamId = competitor.id ?? competitor.team?.id;
+      const challengePlays = plays.filter(play => 
+        play.type?.text?.toLowerCase().includes('challenge') ||
+        play.type?.id === 'challenge' ||
+        play.text?.toLowerCase().includes('challenge')
+      );
+      
+      // If we found challenge plays, check if any were successful/used
+      if (challengePlays.length > 0) {
+        // Assume challenge is used if we see challenge plays
+        // More sophisticated: check if challenge was successful (team keeps it) or unsuccessful (team loses it)
+        const unsuccessfulChallenges = challengePlays.filter(play => 
+          play.text?.toLowerCase().includes('unsuccessful') ||
+          play.text?.toLowerCase().includes('denied')
+        );
+        // If there's an unsuccessful challenge, challenge is likely used
+        hasChallenge = unsuccessfulChallenges.length === 0;
+      }
+    }
+
+    return {
+      timeoutsRemaining: timeoutsRemaining !== null ? Number(timeoutsRemaining) : null,
+      foulsPerQuarter,
+      hasChallenge,
+    };
+  };
+
+  const thunderStats = parseTeamStats(thunder, data?.plays);
+  const opponentStats = parseTeamStats(opponent, data?.plays);
+
   return {
     gameId,
     status: {
@@ -332,6 +393,7 @@ export async function fetchGameSummary(gameId) {
     thunder: {
       score: toNumber(thunder?.score?.value ?? thunder?.score?.displayValue ?? thunder?.score),
       record: getRecordSummary(thunder),
+      stats: thunderStats,
     },
     opponent: opponent
       ? {
@@ -341,6 +403,7 @@ export async function fetchGameSummary(gameId) {
           logo: pickLogo(opponentTeam),
           score: toNumber(opponent?.score?.value ?? opponent?.score?.displayValue ?? opponent?.score),
           record: getRecordSummary(opponent),
+          stats: opponentStats,
         }
       : null,
     players: parsedPlayers,
