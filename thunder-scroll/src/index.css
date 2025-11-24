@@ -11,6 +11,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  --accent-color: #007AC1;
 }
 
 *,
@@ -35,4 +36,8 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: #27272a;
+}
+
+.text-accent {
+  color: var(--accent-color, #007AC1);
 }

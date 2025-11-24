@@ -1,4 +1,4 @@
-export const TEAM_ID = '25';
+const DEFAULT_TEAM_ID = '25';
 const ESPN_BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 
 const resolveApiBase = () => {
@@ -9,6 +9,11 @@ const resolveApiBase = () => {
 
 const API_BASE = resolveApiBase();
 const USE_PROXY = API_BASE.length > 0;
+
+const toTeamId = (teamId) => {
+  if (!teamId) return DEFAULT_TEAM_ID;
+  return String(teamId);
+};
 
 const defaultFetchOptions = {
   headers: {
@@ -65,22 +70,23 @@ const httpGet = async (path) => {
   return response.json();
 };
 
-const normalizeScheduleEvent = (event) => {
+const normalizeScheduleEvent = (event, teamId = DEFAULT_TEAM_ID) => {
+  const targetTeamId = toTeamId(teamId);
   const competition = event?.competitions?.[0];
   const status = competition?.status?.type ?? competition?.status ?? event?.status?.type ?? {};
   const competitors = competition?.competitors ?? [];
-  const thunder = competitors.find((team) => team.id === TEAM_ID || team.team?.id === TEAM_ID);
-  const opponent = competitors.find((team) => team.id !== TEAM_ID && team.team?.id !== TEAM_ID);
+  const isTargetTeam = (entry) => entry.id === targetTeamId || entry.team?.id === targetTeamId;
+  const primary = competitors.find(isTargetTeam);
+  const opponent = competitors.find((team) => !isTargetTeam(team));
 
-  const thunderTeam = thunder?.team ?? thunder;
   const opponentTeam = opponent?.team ?? opponent;
 
-  const thunderScore = toNumber(thunder?.score?.value ?? thunder?.score?.displayValue ?? thunder?.score);
+  const primaryScore = toNumber(primary?.score?.value ?? primary?.score?.displayValue ?? primary?.score);
   const opponentScore = toNumber(opponent?.score?.value ?? opponent?.score?.displayValue ?? opponent?.score);
 
   const result =
-    status.state === 'post' && thunderScore !== null && opponentScore !== null
-      ? thunderScore > opponentScore
+    status.state === 'post' && primaryScore !== null && opponentScore !== null
+      ? primaryScore > opponentScore
         ? 'W'
         : 'L'
       : null;
@@ -98,11 +104,11 @@ const normalizeScheduleEvent = (event) => {
       displayClock: competition?.status?.displayClock ?? '',
       period: competition?.status?.period ?? 0,
     },
-    isHome: thunder?.homeAway === 'home',
-    thunderScore,
+    isHome: primary?.homeAway === 'home',
+    teamScore: primaryScore,
     opponentScore,
     result,
-    scoreline: thunderScore !== null && opponentScore !== null ? `${thunderScore} - ${opponentScore}` : null,
+    scoreline: primaryScore !== null && opponentScore !== null ? `${primaryScore} - ${opponentScore}` : null,
     opponent: opponent
       ? {
           name: opponentTeam?.displayName ?? opponentTeam?.name ?? 'Opponent',
@@ -197,12 +203,13 @@ const parseTeamPlayers = (teamSection) => {
   );
 };
 
-const parsePlayers = (boxscorePlayers = []) => {
-  const thunderSection = boxscorePlayers.find((team) => team.team?.id === TEAM_ID);
-  const opponentSection = boxscorePlayers.find((team) => team.team?.id !== TEAM_ID);
+const parsePlayers = (boxscorePlayers = [], teamId = DEFAULT_TEAM_ID) => {
+  const targetTeamId = toTeamId(teamId);
+  const teamSection = boxscorePlayers.find((team) => team.team?.id === targetTeamId);
+  const opponentSection = boxscorePlayers.find((team) => team.team?.id !== targetTeamId);
 
   return {
-    thunder: parseTeamPlayers(thunderSection),
+    team: parseTeamPlayers(teamSection),
     opponent: parseTeamPlayers(opponentSection),
   };
 };
@@ -244,11 +251,12 @@ const calculateOnCourtPlayers = (allPlayers, plays) => {
   });
 };
 
-const parseInjuries = (injuriesData) => {
-  if (!Array.isArray(injuriesData)) return { thunder: [], opponent: [] };
+const parseInjuries = (injuriesData, teamId = DEFAULT_TEAM_ID) => {
+  if (!Array.isArray(injuriesData)) return { team: [], opponent: [] };
 
-  const thunderSection = injuriesData.find((item) => item.team?.id === TEAM_ID);
-  const opponentSection = injuriesData.find((item) => item.team?.id !== TEAM_ID);
+  const targetTeamId = toTeamId(teamId);
+  const teamSection = injuriesData.find((item) => item.team?.id === targetTeamId);
+  const opponentSection = injuriesData.find((item) => item.team?.id !== targetTeamId);
 
   const mapInjury = (injury) => {
     const athlete = injury.athlete || {};
@@ -265,7 +273,7 @@ const parseInjuries = (injuriesData) => {
                 year: 'numeric'
              });
          }
-      } catch (e) {
+      } catch {
         // keep original
       }
     }
@@ -285,7 +293,7 @@ const parseInjuries = (injuriesData) => {
   };
 
   return {
-    thunder: thunderSection?.injuries?.map(mapInjury) || [],
+    team: teamSection?.injuries?.map(mapInjury) || [],
     opponent: opponentSection?.injuries?.map(mapInjury) || [],
   };
 };
@@ -342,13 +350,17 @@ const calculateGameStats = (plays, currentPeriod) => {
   return teamStats;
 };
 
-export async function fetchSchedule() {
-  const path = USE_PROXY ? '/schedule' : `${ESPN_BASE_URL}/teams/${TEAM_ID}/schedule`;
+export async function fetchSchedule(teamId = DEFAULT_TEAM_ID) {
+  const targetTeamId = toTeamId(teamId);
+  const path = USE_PROXY
+    ? `/schedule?teamId=${encodeURIComponent(targetTeamId)}`
+    : `${ESPN_BASE_URL}/teams/${targetTeamId}/schedule`;
   const data = await httpGet(path);
-  return (data?.events ?? []).map(normalizeScheduleEvent);
+  return (data?.events ?? []).map((event) => normalizeScheduleEvent(event, targetTeamId));
 }
 
-export async function fetchGameSummary(gameId) {
+export async function fetchGameSummary(gameId, teamId = DEFAULT_TEAM_ID) {
+  const targetTeamId = toTeamId(teamId);
   const basePath = USE_PROXY
     ? `/summary?gameId=${encodeURIComponent(gameId)}`
     : `${ESPN_BASE_URL}/summary?event=${gameId}`;
@@ -361,21 +373,26 @@ export async function fetchGameSummary(gameId) {
 
   const status = competition.status?.type ?? competition.status ?? {};
   const competitors = competition.competitors ?? [];
-  const thunder = competitors.find((team) => team.id === TEAM_ID || team.team?.id === TEAM_ID);
-  const opponent = competitors.find((team) => team.id !== TEAM_ID && team.team?.id !== TEAM_ID);
-  const thunderTeam = thunder?.team ?? thunder;
+  const isTargetTeam = (team) => team.id === targetTeamId || team.team?.id === targetTeamId;
+  const primary = competitors.find(isTargetTeam);
+  const opponent = competitors.find((team) => !isTargetTeam(team));
+  const primaryTeam = primary?.team ?? primary;
   const opponentTeam = opponent?.team ?? opponent;
 
-  const parsedPlayers = parsePlayers(data?.boxscore?.players);
-  const allPlayers = [...parsedPlayers.thunder, ...parsedPlayers.opponent];
+  const parsedPlayers = parsePlayers(data?.boxscore?.players, targetTeamId);
+  const allPlayers = [...parsedPlayers.team, ...parsedPlayers.opponent];
   calculateOnCourtPlayers(allPlayers, data?.plays);
 
   const computedStats = calculateGameStats(data?.plays, status.period);
-  const thunderId = thunder?.id || thunder?.team?.id;
+  const primaryId = primary?.id || primary?.team?.id;
   const opponentId = opponent?.id || opponent?.team?.id;
-  
-  const thunderStats = (thunderId && computedStats[thunderId]) || { fouls: 0, challengeUsed: false, timeoutsUsed: 0 };
-  const opponentStats = (opponentId && computedStats[opponentId]) || { fouls: 0, challengeUsed: false, timeoutsUsed: 0 };
+
+  const primaryStats = (primaryId && computedStats[primaryId]) || { fouls: 0, challengeUsed: false, timeoutsUsed: 0 };
+  const opponentStats = (opponentId && computedStats[opponentId]) || {
+    fouls: 0,
+    challengeUsed: false,
+    timeoutsUsed: 0,
+  };
 
   return {
     gameId,
@@ -388,15 +405,19 @@ export async function fetchGameSummary(gameId) {
       displayClock: competition.status?.displayClock ?? '',
       period: competition.status?.period ?? 0,
     },
-    thunder: {
-      score: toNumber(thunder?.score?.value ?? thunder?.score?.displayValue ?? thunder?.score),
-      record: getRecordSummary(thunder),
+    team: {
+      name: primaryTeam?.displayName ?? primaryTeam?.name ?? 'Team',
+      shortName: primaryTeam?.shortDisplayName ?? primaryTeam?.abbreviation ?? primaryTeam?.name ?? 'TEAM',
+      abbreviation: primaryTeam?.abbreviation ?? primaryTeam?.shortDisplayName ?? 'TEAM',
+      logo: pickLogo(primaryTeam),
+      score: toNumber(primary?.score?.value ?? primary?.score?.displayValue ?? primary?.score),
+      record: getRecordSummary(primary),
       stats: {
-        fouls: thunderStats.fouls,
-        challengeUsed: thunderStats.challengeUsed,
-        timeoutsUsed: thunderStats.timeoutsUsed,
-        timeoutsRemaining: thunder?.timeoutsRemaining ?? null, // Try to get from API if available
-      }
+        fouls: primaryStats.fouls,
+        challengeUsed: primaryStats.challengeUsed,
+        timeoutsUsed: primaryStats.timeoutsUsed,
+        timeoutsRemaining: primary?.timeoutsRemaining ?? null,
+      },
     },
     opponent: opponent
       ? {
@@ -411,11 +432,11 @@ export async function fetchGameSummary(gameId) {
             challengeUsed: opponentStats.challengeUsed,
             timeoutsUsed: opponentStats.timeoutsUsed,
             timeoutsRemaining: opponent?.timeoutsRemaining ?? null,
-          }
+          },
         }
       : null,
     players: parsedPlayers,
-    injuries: parseInjuries(data?.injuries),
+    injuries: parseInjuries(data?.injuries, targetTeamId),
     fetchedAt: new Date().toISOString(),
   };
 }

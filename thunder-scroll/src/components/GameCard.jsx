@@ -57,7 +57,7 @@ const GameCard = ({ game, isActive, onClick }) => {
 
       <div className="flex items-end justify-between font-mono text-sm">
         <span className="text-zinc-500">{isLive ? liveDetail : isFinal ? resultLabel : futureDetail}</span>
-        <span className={`text-lg font-semibold ${isLive ? 'text-thunder' : 'text-zinc-100'}`}>
+        <span className={`text-lg font-semibold ${isLive ? 'text-accent' : 'text-zinc-100'}`}>
           {isFuture ? timeLabel : game.scoreline ?? '--'}
         </span>
       </div>
