@@ -1,7 +1,7 @@
 const formatDateLabel = (iso, options) =>
   new Intl.DateTimeFormat('en-US', options).format(new Date(iso));
 
-const GameCard = ({ game, isActive, onClick }) => {
+const GameCard = ({ game, isActive, onClick, teamColor }) => {
   if (!game) return null;
 
   const isLive = game.status?.state === 'in';
@@ -57,7 +57,10 @@ const GameCard = ({ game, isActive, onClick }) => {
 
       <div className="flex items-end justify-between font-mono text-sm">
         <span className="text-zinc-500">{isLive ? liveDetail : isFinal ? resultLabel : futureDetail}</span>
-        <span className={`text-lg font-semibold ${isLive ? 'text-thunder' : 'text-zinc-100'}`}>
+        <span 
+          className="text-lg font-semibold" 
+          style={{ color: isLive ? (teamColor || '#007AC1') : '#f4f4f5' }}
+        >
           {isFuture ? timeLabel : game.scoreline ?? '--'}
         </span>
       </div>

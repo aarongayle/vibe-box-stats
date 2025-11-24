@@ -5,17 +5,17 @@ const formatUpdatedAt = (iso) => {
   return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(iso));
 };
 
-const LiveIndicator = () => (
+const LiveIndicator = ({ color }) => (
   <div className="flex items-center gap-2">
     <span className="relative flex h-2.5 w-2.5">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ backgroundColor: '#34d399' }}></span>
+      <span className="relative inline-flex h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#34d399' }}></span>
     </span>
-    <span className="text-[12px] font-semibold uppercase tracking-[0.3em] text-thunder">Live</span>
+    <span className="text-[12px] font-semibold uppercase tracking-[0.3em]" style={{ color: color || '#007AC1' }}>Live</span>
   </div>
 );
 
-const BoxScore = ({ summary, loading, fallbackGame }) => {
+const BoxScore = ({ summary, loading, fallbackGame, activeTeam }) => {
   const [reboundsExpanded, setReboundsExpanded] = useState(false);
   const [stocksExpanded, setStocksExpanded] = useState(false);
 
@@ -23,25 +23,25 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
   const isLive = status?.state === 'in';
 
   const opponent = summary?.opponent ?? fallbackGame?.opponent ?? null;
-  const thunderScore = summary?.thunder?.score ?? fallbackGame?.thunderScore ?? null;
+  const activeScore = summary?.active?.score ?? fallbackGame?.activeScore ?? null;
   const opponentScore = opponent ? opponent.score ?? fallbackGame?.opponentScore ?? null : fallbackGame?.opponentScore ?? null;
 
   const matchupLabel = fallbackGame
     ? `${fallbackGame.isHome ? 'vs' : '@'} ${fallbackGame.opponent?.shortName ?? opponent?.shortName ?? ''}`
     : opponent?.shortName
     ? `vs ${opponent.shortName}`
-    : 'Thunder';
+    : activeTeam.name;
 
   const clockLabel = isLive
     ? `${status.displayClock || 'LIVE'} • Q${status.period ?? '—'}`
     : status.detail || fallbackGame?.status?.shortDetail || 'Final';
 
-  const players = summary?.players ?? { thunder: [], opponent: [] };
-  const thunderPlayers = players.thunder ?? [];
+  const players = summary?.players ?? { active: [], opponent: [] };
+  const activePlayers = players.active ?? [];
   const opponentPlayers = players.opponent ?? [];
-  const hasAnyPlayers = thunderPlayers.length > 0 || opponentPlayers.length > 0;
+  const hasAnyPlayers = activePlayers.length > 0 || opponentPlayers.length > 0;
 
-  const thunderStats = summary?.thunder?.stats;
+  const activeStats = summary?.active?.stats;
   const opponentStats = summary?.opponent?.stats;
 
   const renderTeamStats = (stats, alignRight = false) => {
@@ -57,8 +57,6 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
       timeoutsDisplay = Math.max(0, 7 - stats.timeoutsUsed);
     }
     
-    // If game is final, timeouts usually meaningless (0), but if computed from used, shows remaining.
-    // For completed games, maybe hide or show 0?
     if (status.state === 'post') {
        timeoutsDisplay = 0;
     }
@@ -235,7 +233,7 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
 
     return (
       <div className="space-y-10">
-        {thunderPlayers.length > 0 && renderTeamSection('Thunder', thunderPlayers)}
+        {activePlayers.length > 0 && renderTeamSection(activeTeam.name, activePlayers)}
         {opponentPlayers.length > 0 && renderTeamSection(opponentLabel, opponentPlayers)}
       </div>
     );
@@ -245,10 +243,10 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
     const injuries = summary?.injuries;
     if (loading || !injuries) return null;
 
-    const hasThunderInjuries = injuries.thunder?.length > 0;
+    const hasActiveInjuries = injuries.active?.length > 0;
     const hasOpponentInjuries = injuries.opponent?.length > 0;
 
-    if (!hasThunderInjuries && !hasOpponentInjuries) return null;
+    if (!hasActiveInjuries && !hasOpponentInjuries) return null;
 
     const renderInjuryTable = (teamLabel, teamInjuries) => {
       if (!teamInjuries || teamInjuries.length === 0) return null;
@@ -299,7 +297,7 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
 
     return (
       <div className="space-y-8 pt-6 mt-6 border-t border-zinc-800">
-        {renderInjuryTable('Thunder', injuries.thunder)}
+        {renderInjuryTable(activeTeam.name, injuries.active)}
         {renderInjuryTable(opponentLabel, injuries.opponent)}
       </div>
     );
@@ -310,10 +308,10 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Live Box Score</p>
-          <p className="font-sans text-2xl font-semibold text-zinc-100">Thunder {matchupLabel}</p>
+          <p className="font-sans text-2xl font-semibold text-zinc-100">{activeTeam.name} {matchupLabel}</p>
         </div>
         <div className="flex flex-col items-start gap-2 sm:items-end">
-          {isLive && <LiveIndicator />}
+          {isLive && <LiveIndicator color={activeTeam.color} />}
           {summary?.fetchedAt && (
             <span className="font-mono text-xs text-zinc-500">Updated {formatUpdatedAt(summary.fetchedAt)}</span>
           )}
@@ -323,18 +321,18 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
       <div className="flex flex-col gap-4 rounded-2xl border border-zinc-800 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 items-center justify-between gap-8">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">OKC</p>
-            <p className={`font-mono text-3xl font-semibold ${isLive ? 'text-thunder' : 'text-zinc-100'}`}>
-              {thunderScore ?? '--'}
+            <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">{activeTeam.slug}</p>
+            <p className="font-mono text-3xl font-semibold" style={{ color: isLive ? activeTeam.color : '#f4f4f5' }}>
+              {activeScore ?? '--'}
             </p>
-            {renderTeamStats(thunderStats)}
+            {renderTeamStats(activeStats)}
           </div>
           <div className="text-center font-mono text-xs uppercase tracking-[0.3em] text-zinc-600">vs</div>
           <div className="text-right">
             <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
               {opponent?.abbreviation ?? fallbackGame?.opponent?.abbreviation ?? 'OPP'}
             </p>
-            <p className={`font-mono text-3xl font-semibold ${isLive ? 'text-thunder' : 'text-zinc-100'}`}>
+            <p className="font-mono text-3xl font-semibold" style={{ color: isLive ? activeTeam.color : '#f4f4f5' }}>
               {opponentScore ?? '--'}
             </p>
             {renderTeamStats(opponentStats, true)}
