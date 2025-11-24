@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 import GameCard from './components/GameCard';
@@ -26,6 +26,7 @@ function App() {
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [offline, setOffline] = useState(false);
+  const scheduleListRef = useRef(null);
 
   const loadSchedule = useCallback(async () => {
     try {
@@ -82,6 +83,13 @@ function App() {
     return () => clearInterval(id);
   }, [activeGame?.id, summary?.status?.state, loadSummary]);
 
+  useEffect(() => {
+    if (!activeGame?.id || !scheduleListRef.current) return;
+    const activeCard = scheduleListRef.current.querySelector(`[data-game-id="${activeGame.id}"]`);
+    if (!activeCard) return;
+    activeCard.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [activeGame?.id, schedule]);
+
   const scheduleContent = useMemo(() => {
     if (loadingSchedule && !schedule.length) {
       return <ScheduleSkeleton />;
@@ -126,7 +134,9 @@ function App() {
               Sync
             </button>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1">{scheduleContent}</div>
+          <div ref={scheduleListRef} className="flex gap-3 overflow-x-auto pb-1">
+            {scheduleContent}
+          </div>
         </section>
 
         {activeGame ? (
