@@ -103,8 +103,14 @@ function App() {
       );
     }
 
+    const handleGameClick = (game) => {
+      if (game.status?.state === 'post') {
+        setActiveGame(game);
+      }
+    };
+
     return schedule.map((game) => (
-      <GameCard key={game.id} game={game} isActive={game.id === activeGame?.id} />
+      <GameCard key={game.id} game={game} isActive={game.id === activeGame?.id} onClick={handleGameClick} />
     ));
   }, [loadingSchedule, schedule, activeGame]);
 

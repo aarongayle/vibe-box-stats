@@ -1,7 +1,7 @@
 const formatDateLabel = (iso, options) =>
   new Intl.DateTimeFormat('en-US', options).format(new Date(iso));
 
-const GameCard = ({ game, isActive }) => {
+const GameCard = ({ game, isActive, onClick }) => {
   if (!game) return null;
 
   const isLive = game.status?.state === 'in';
@@ -17,12 +17,19 @@ const GameCard = ({ game, isActive }) => {
   const liveDetail = game.status?.detail || game.status?.displayClock || 'Live';
   const futureDetail = `${weekdayLabel} · ${timeLabel}`;
 
+  const handleClick = () => {
+    if (isFinal && onClick) {
+      onClick(game);
+    }
+  };
+
   return (
     <div
       className={`flex min-w-[220px] flex-col gap-3 rounded-2xl border border-zinc-800 px-4 py-3 transition-colors ${
         isActive ? 'bg-zinc-900/40' : 'bg-transparent'
-      }`}
+      } ${isFinal ? 'cursor-pointer hover:bg-zinc-900/20' : ''}`}
       data-game-id={game.id}
+      onClick={handleClick}
     >
       <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.3em] text-zinc-500">
         <span>{isLive ? 'Today' : `${weekdayLabel} ${dayLabel}`}</span>
