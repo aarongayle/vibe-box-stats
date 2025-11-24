@@ -148,12 +148,12 @@ function TeamPage() {
               Select Team
             </Link>
           </div>
-          <h1 className="font-sans text-4xl font-semibold text-zinc-100">
+          <h1 className="font-sans text-4xl font-semibold" style={{ color: team.primaryColor }}>
             {team.shortName} Box Score, distilled.
           </h1>
           <p className="max-w-2xl text-sm text-zinc-500">
             Hyper-fast, text-forward updates sourced from ESPN&apos;s hidden endpoints. Nothing but data for{' '}
-            {team.shortName} fans.
+            <span style={{ color: team.primaryColor }}>{team.shortName}</span> fans.
           </p>
           {offline && <span className="font-mono text-xs uppercase text-rose-400">Offline</span>}
         </header>
