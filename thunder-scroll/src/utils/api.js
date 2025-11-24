@@ -2,9 +2,6 @@ export const TEAM_ID = '25';
 const BASE_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba';
 
 const defaultFetchOptions = {
-  headers: {
-    'Cache-Control': 'no-cache',
-  },
   cache: 'no-store',
 };
 
