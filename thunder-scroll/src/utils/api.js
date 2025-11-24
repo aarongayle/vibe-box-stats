@@ -150,6 +150,9 @@ const parseTeamPlayers = (teamSection) => {
         const lastName =
           athlete.lastName ??
           (athlete.displayName ? athlete.displayName.split(' ').slice(-1)[0] : athlete.shortName ?? 'Player');
+        
+        const isStarter = row.starter ?? false;
+        const isOnCourt = row.onCourt ?? false;
 
         const parseMadeAttempted = (value = '') => {
           if (typeof value !== 'string') return { made: 0, attempted: 0 };
@@ -167,6 +170,8 @@ const parseTeamPlayers = (teamSection) => {
         return {
           id: athlete.id ?? lastName,
           name: lastName,
+          isStarter,
+          isOnCourt,
           minutes: minutesDisplay,
           minutesValue,
           points: pointsIdx !== undefined ? Number(stats[pointsIdx]) || 0 : 0,

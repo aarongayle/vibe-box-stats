@@ -59,22 +59,37 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
             </tr>
           </thead>
           <tbody>
-            {teamPlayers.map((player) => (
-              <tr key={player.id} className="border-t border-zinc-900/70">
-                <td className="py-2.5 pr-6 font-sans text-zinc-100">{player.name}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-zinc-100">{player.minutes}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-zinc-100">{player.points}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-zinc-100">
-                  {player.threePointersMade}-{player.threePointersAttempted}
-                </td>
-                <td className="py-2.5 px-3 text-right font-mono text-zinc-100">{player.offensiveRebounds}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-zinc-100">{player.defensiveRebounds}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-zinc-100">{player.assists}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-zinc-100">{player.steals ?? 0}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-zinc-100">{player.blocks ?? 0}</td>
-                <td className="py-2.5 px-3 text-right font-mono text-zinc-100">{player.fouls}</td>
-              </tr>
-            ))}
+            {teamPlayers.map((player) => {
+              const isStarter = player.isStarter;
+              const textColor = isStarter ? 'text-zinc-100' : 'text-zinc-500';
+              const nameColor = isStarter ? 'text-zinc-100 font-medium' : 'text-zinc-400';
+
+              return (
+                <tr key={player.id} className="border-t border-zinc-900/70">
+                  <td className={`py-2.5 pr-6 font-sans ${nameColor}`}>
+                    <div className="flex items-center gap-2">
+                      <span>{player.name}</span>
+                      {player.isOnCourt && (
+                        <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-zinc-800 text-[10px] font-bold text-emerald-400">
+                          C
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.minutes}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.points}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
+                    {player.threePointersMade}-{player.threePointersAttempted}
+                  </td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.offensiveRebounds}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.defensiveRebounds}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.assists}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.steals ?? 0}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.blocks ?? 0}</td>
+                  <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.fouls}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
