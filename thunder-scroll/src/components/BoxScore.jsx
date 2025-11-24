@@ -37,40 +37,58 @@ const BoxScore = ({ summary, loading, fallbackGame }) => {
   const hasAnyPlayers = thunderPlayers.length > 0 || opponentPlayers.length > 0;
 
   const renderTeamSection = (teamLabel, teamPlayers) => (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">{teamLabel}</p>
-        <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-zinc-600">BOX</span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-600">BOX</span>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+        <table className="min-w-full table-fixed text-sm">
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-[0.3em] text-zinc-500">
-              <th className="py-2 font-sans">Player</th>
-              <th className="py-2 text-right font-mono">MIN</th>
-              <th className="py-2 text-right font-mono">PTS</th>
-              <th className="py-2 text-right font-mono">3PM-A</th>
-              <th className="py-2 text-right font-mono">OREB</th>
-              <th className="py-2 text-right font-mono">DREB</th>
-              <th className="py-2 text-right font-mono">AST</th>
-              <th className="py-2 text-right font-mono">PF</th>
-              <th className="py-2 text-right font-mono">+/-</th>
+            <tr className="border-b border-zinc-900/70 text-left text-[11px] uppercase tracking-[0.2em] text-zinc-500">
+              <th className="py-3 pr-4 font-sans font-semibold">Player</th>
+              <th className="px-2 py-3 text-right font-mono font-semibold">MIN</th>
+              <th className="px-2 py-3 text-right font-mono font-semibold">PTS</th>
+              <th className="px-2 py-3 text-right font-mono font-semibold">3PM-A</th>
+              <th className="px-2 py-3 text-right font-mono font-semibold">OREB</th>
+              <th className="px-2 py-3 text-right font-mono font-semibold">DREB</th>
+              <th className="px-2 py-3 text-right font-mono font-semibold">AST</th>
+              <th className="px-2 py-3 text-right font-mono font-semibold">STL</th>
+              <th className="px-2 py-3 text-right font-mono font-semibold">BLK</th>
+              <th className="px-2 py-3 text-right font-mono font-semibold">PF</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-zinc-900/60">
             {teamPlayers.map((player) => (
-              <tr key={player.id} className="border-t border-zinc-900/70">
-                <td className="py-2 pr-4 font-sans text-zinc-100">{player.name}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.minutes}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.points}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">
+              <tr key={player.id} className="align-middle">
+                <td className="max-w-[160px] truncate py-2.5 pr-4 font-sans text-sm text-zinc-100">{player.name}</td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] text-zinc-100">
+                  {player.minutes}
+                </td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] text-zinc-100">
+                  {player.points}
+                </td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] text-zinc-100">
                   {player.threePointersMade}-{player.threePointersAttempted}
                 </td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.offensiveRebounds}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.defensiveRebounds}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.assists}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.fouls}</td>
-                <td className="py-2 text-right font-mono text-zinc-100">{player.plusMinus}</td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] text-zinc-100">
+                  {player.offensiveRebounds}
+                </td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] text-zinc-100">
+                  {player.defensiveRebounds}
+                </td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] text-zinc-100">
+                  {player.assists}
+                </td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] text-zinc-100">
+                  {player.steals}
+                </td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] text-zinc-100">
+                  {player.blocks}
+                </td>
+                <td className="whitespace-nowrap px-2 py-2.5 text-right font-mono text-[13px] text-zinc-100">
+                  {player.fouls}
+                </td>
               </tr>
             ))}
           </tbody>
