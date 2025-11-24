@@ -26,6 +26,7 @@ function TeamPage() {
   const team = getTeamBySlug(teamSlug);
   
   const [schedule, setSchedule] = useState([]);
+  const [teamRecord, setTeamRecord] = useState(null);
   const [activeGame, setActiveGame] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loadingSchedule, setLoadingSchedule] = useState(true);
@@ -37,9 +38,10 @@ function TeamPage() {
     if (!team?.id) return;
     try {
       setLoadingSchedule(true);
-      const games = await fetchSchedule(team.id);
-      setSchedule(games);
-      setActiveGame(selectActiveGame(games));
+      const result = await fetchSchedule(team.id);
+      setSchedule(result.events);
+      setTeamRecord(result.teamRecord);
+      setActiveGame(selectActiveGame(result.events));
       setOffline(false);
     } catch (error) {
       console.error(error);
@@ -162,8 +164,8 @@ function TeamPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Schedule</p>
-              {schedule.length > 0 && schedule[0]?.teamRecord && (
-                <span className="font-mono text-xs text-zinc-400">{schedule[0].teamRecord}</span>
+              {teamRecord && (
+                <span className="font-mono text-xs text-zinc-400">{teamRecord}</span>
               )}
             </div>
             <button
