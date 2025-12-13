@@ -15,19 +15,17 @@ const GameCard = ({ game, isActive, onClick }) => {
   const matchup = `${game.isHome ? 'vs' : '@'} ${game.opponent?.shortName ?? 'TBD'}`;
   const resultLabel = isFinal ? `${game.result ?? ''} · Final` : '';
   const liveDetail = game.status?.detail || game.status?.displayClock || 'Live';
-  const futureDetail = `${weekdayLabel} · ${timeLabel}`;
+  const futureDetail = 'Upcoming';
 
   const handleClick = () => {
-    if (isFinal && onClick) {
-      onClick(game);
-    }
+    if (onClick) onClick(game);
   };
 
   return (
     <div
       className={`flex min-w-[220px] flex-col gap-3 rounded-2xl border border-zinc-800 px-4 py-3 transition-colors ${
         isActive ? 'bg-zinc-900/40' : 'bg-transparent'
-      } ${isFinal ? 'cursor-pointer hover:bg-zinc-900/20' : ''}`}
+      } cursor-pointer hover:bg-zinc-900/20`}
       data-game-id={game.id}
       onClick={handleClick}
     >
