@@ -80,8 +80,14 @@ function TeamPage() {
       setSummary(null);
       return;
     }
+    const state = activeGame.status?.state;
+    if (state !== 'in' && state !== 'post') {
+      setSummary(null);
+      setLoadingSummary(false);
+      return;
+    }
     loadSummary(activeGame.id);
-  }, [activeGame?.id, loadSummary]);
+  }, [activeGame?.id, activeGame?.status?.state, loadSummary]);
 
   useEffect(() => {
     if (!activeGame?.id || summary?.status?.state !== 'in') return undefined;
@@ -112,9 +118,7 @@ function TeamPage() {
     }
 
     const handleGameClick = (game) => {
-      if (game.status?.state === 'post') {
-        setActiveGame(game);
-      }
+      setActiveGame(game);
     };
 
     return schedule.map((game) => (
