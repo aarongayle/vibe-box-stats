@@ -31,6 +31,10 @@ const calculateTotals = (players) => {
       steals: totals.steals + (player.steals || 0),
       blocks: totals.blocks + (player.blocks || 0),
       fouls: totals.fouls + (player.fouls || 0),
+      fieldGoalsMade: totals.fieldGoalsMade + (player.fieldGoalsMade || 0),
+      fieldGoalsAttempted: totals.fieldGoalsAttempted + (player.fieldGoalsAttempted || 0),
+      freeThrowsMade: totals.freeThrowsMade + (player.freeThrowsMade || 0),
+      freeThrowsAttempted: totals.freeThrowsAttempted + (player.freeThrowsAttempted || 0),
     };
   }, {
     minutes: 0,
@@ -43,7 +47,17 @@ const calculateTotals = (players) => {
     steals: 0,
     blocks: 0,
     fouls: 0,
+    fieldGoalsMade: 0,
+    fieldGoalsAttempted: 0,
+    freeThrowsMade: 0,
+    freeThrowsAttempted: 0,
   });
+};
+
+// Calculate percentage
+const calcPercent = (made, attempted) => {
+  if (!attempted || attempted === 0) return '0%';
+  return `${Math.round((made / attempted) * 100)}%`;
 };
 
 // Team section component with forwarded ref for scroll syncing
@@ -54,7 +68,8 @@ const TeamSection = forwardRef(function TeamSection({
   reboundsExpanded,
   setReboundsExpanded,
   stocksExpanded,
-  setStocksExpanded 
+  setStocksExpanded,
+  showAllStats
 }, ref) {
   const totals = calculateTotals(teamPlayers);
   
@@ -75,6 +90,12 @@ const TeamSection = forwardRef(function TeamSection({
               <th className="py-2 pr-6 font-sans">Player</th>
               <th className="py-2 px-3 text-right font-mono">MIN</th>
               <th className="py-2 px-3 text-right font-mono">PTS</th>
+              {showAllStats && (
+                <>
+                  <th className="py-2 px-3 text-right font-mono">FG</th>
+                  <th className="py-2 px-3 text-right font-mono">FT</th>
+                </>
+              )}
               {reboundsExpanded ? (
                 <>
                   <th
@@ -153,6 +174,16 @@ const TeamSection = forwardRef(function TeamSection({
                   </td>
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.minutes}</td>
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.points}</td>
+                  {showAllStats && (
+                    <>
+                      <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
+                        {player.fieldGoalsMade}-{player.fieldGoalsAttempted}
+                      </td>
+                      <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
+                        {player.freeThrowsMade}-{player.freeThrowsAttempted}
+                      </td>
+                    </>
+                  )}
                   {reboundsExpanded ? (
                     <>
                       <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.offensiveRebounds}</td>
@@ -188,6 +219,16 @@ const TeamSection = forwardRef(function TeamSection({
                 <td className="py-2.5 pr-6 font-sans font-semibold text-zinc-100">TOTALS</td>
                 <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.minutes}</td>
                 <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.points}</td>
+                {showAllStats && (
+                  <>
+                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
+                      {totals.fieldGoalsMade}-{totals.fieldGoalsAttempted}
+                    </td>
+                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
+                      {totals.freeThrowsMade}-{totals.freeThrowsAttempted}
+                    </td>
+                  </>
+                )}
                 {reboundsExpanded ? (
                   <>
                     <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.offensiveRebounds}</td>
@@ -214,6 +255,43 @@ const TeamSection = forwardRef(function TeamSection({
                 )}
                 <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.fouls}</td>
               </tr>
+              {/* Percentages row */}
+              <tr className="bg-zinc-900/30">
+                <td className="py-1.5 pr-6 font-sans text-[10px] uppercase tracking-wider text-zinc-500"></td>
+                <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                {showAllStats && (
+                  <>
+                    <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-400">
+                      {calcPercent(totals.fieldGoalsMade, totals.fieldGoalsAttempted)}
+                    </td>
+                    <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-400">
+                      {calcPercent(totals.freeThrowsMade, totals.freeThrowsAttempted)}
+                    </td>
+                  </>
+                )}
+                {reboundsExpanded ? (
+                  <>
+                    <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                    <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                  </>
+                ) : (
+                  <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                )}
+                <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-400">
+                  {calcPercent(totals.threePointersMade, totals.threePointersAttempted)}
+                </td>
+                {stocksExpanded ? (
+                  <>
+                    <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                    <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                  </>
+                ) : (
+                  <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                )}
+                <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+              </tr>
             </tfoot>
           )}
         </table>
@@ -225,6 +303,7 @@ const TeamSection = forwardRef(function TeamSection({
 const BoxScore = ({ summary, loading, fallbackGame, team }) => {
   const [reboundsExpanded, setReboundsExpanded] = useState(false);
   const [stocksExpanded, setStocksExpanded] = useState(false);
+  const [showAllStats, setShowAllStats] = useState(false);
   
   // Refs for synced scrolling
   const teamScrollRef = useRef(null);
@@ -350,31 +429,48 @@ const BoxScore = ({ summary, loading, fallbackGame, team }) => {
       'Opponent';
 
     return (
-      <div className="space-y-10">
-        {teamPlayers.length > 0 && (
-          <TeamSection
-            ref={teamScrollRef}
-            teamLabel={teamName}
-            teamPlayers={teamPlayers}
-            onScroll={handleTeamScroll}
-            reboundsExpanded={reboundsExpanded}
-            setReboundsExpanded={setReboundsExpanded}
-            stocksExpanded={stocksExpanded}
-            setStocksExpanded={setStocksExpanded}
-          />
-        )}
-        {opponentPlayers.length > 0 && (
-          <TeamSection
-            ref={opponentScrollRef}
-            teamLabel={opponentLabel}
-            teamPlayers={opponentPlayers}
-            onScroll={handleOpponentScroll}
-            reboundsExpanded={reboundsExpanded}
-            setReboundsExpanded={setReboundsExpanded}
-            stocksExpanded={stocksExpanded}
-            setStocksExpanded={setStocksExpanded}
-          />
-        )}
+      <div className="space-y-6">
+        {/* All Stats Toggle */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => setShowAllStats(!showAllStats)}
+            className={`rounded-lg px-3 py-1.5 text-[11px] font-mono uppercase tracking-wider transition-colors ${
+              showAllStats 
+                ? 'bg-thunder text-zinc-900 font-semibold' 
+                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-300'
+            }`}
+          >
+            All Stats
+          </button>
+        </div>
+        <div className="space-y-10">
+          {teamPlayers.length > 0 && (
+            <TeamSection
+              ref={teamScrollRef}
+              teamLabel={teamName}
+              teamPlayers={teamPlayers}
+              onScroll={handleTeamScroll}
+              reboundsExpanded={reboundsExpanded}
+              setReboundsExpanded={setReboundsExpanded}
+              stocksExpanded={stocksExpanded}
+              setStocksExpanded={setStocksExpanded}
+              showAllStats={showAllStats}
+            />
+          )}
+          {opponentPlayers.length > 0 && (
+            <TeamSection
+              ref={opponentScrollRef}
+              teamLabel={opponentLabel}
+              teamPlayers={opponentPlayers}
+              onScroll={handleOpponentScroll}
+              reboundsExpanded={reboundsExpanded}
+              setReboundsExpanded={setReboundsExpanded}
+              stocksExpanded={stocksExpanded}
+              setStocksExpanded={setStocksExpanded}
+              showAllStats={showAllStats}
+            />
+          )}
+        </div>
       </div>
     );
   };

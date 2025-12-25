@@ -136,6 +136,8 @@ const parseTeamPlayers = (teamSection) => {
   const stealsIdx = keyIndex.steals;
   const blocksIdx = keyIndex.blocks;
   const threesIdx = keyIndex['threePointFieldGoalsMade-threePointFieldGoalsAttempted'];
+  const fgIdx = keyIndex['fieldGoalsMade-fieldGoalsAttempted'];
+  const ftIdx = keyIndex['freeThrowsMade-freeThrowsAttempted'];
 
   return (
     statTable.athletes
@@ -166,6 +168,8 @@ const parseTeamPlayers = (teamSection) => {
         };
 
         const threesStat = threesIdx !== undefined ? parseMadeAttempted(stats[threesIdx]) : { made: 0, attempted: 0 };
+        const fgStat = fgIdx !== undefined ? parseMadeAttempted(stats[fgIdx]) : { made: 0, attempted: 0 };
+        const ftStat = ftIdx !== undefined ? parseMadeAttempted(stats[ftIdx]) : { made: 0, attempted: 0 };
 
         return {
           id: athlete.id ?? lastName,
@@ -186,6 +190,10 @@ const parseTeamPlayers = (teamSection) => {
           fouls: foulsIdx !== undefined ? Number(stats[foulsIdx]) || 0 : 0,
           threePointersMade: threesStat.made,
           threePointersAttempted: threesStat.attempted,
+          fieldGoalsMade: fgStat.made,
+          fieldGoalsAttempted: fgStat.attempted,
+          freeThrowsMade: ftStat.made,
+          freeThrowsAttempted: ftStat.attempted,
         };
       })
       .filter(Boolean)
