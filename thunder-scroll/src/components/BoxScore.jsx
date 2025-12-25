@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback, forwardRef } from 'react';
 
 const formatUpdatedAt = (iso) => {
   if (!iso) return '';
@@ -15,86 +15,60 @@ const LiveIndicator = () => (
   </div>
 );
 
-const BoxScore = ({ summary, loading, fallbackGame, team }) => {
-  const [reboundsExpanded, setReboundsExpanded] = useState(false);
-  const [stocksExpanded, setStocksExpanded] = useState(false);
+// Calculate team totals from players
+const calculateTotals = (players) => {
+  if (!players || players.length === 0) return null;
+  
+  return players.reduce((totals, player) => {
+    return {
+      minutes: totals.minutes + (parseInt(player.minutes) || 0),
+      points: totals.points + (player.points || 0),
+      offensiveRebounds: totals.offensiveRebounds + (player.offensiveRebounds || 0),
+      defensiveRebounds: totals.defensiveRebounds + (player.defensiveRebounds || 0),
+      assists: totals.assists + (player.assists || 0),
+      threePointersMade: totals.threePointersMade + (player.threePointersMade || 0),
+      threePointersAttempted: totals.threePointersAttempted + (player.threePointersAttempted || 0),
+      steals: totals.steals + (player.steals || 0),
+      blocks: totals.blocks + (player.blocks || 0),
+      fouls: totals.fouls + (player.fouls || 0),
+    };
+  }, {
+    minutes: 0,
+    points: 0,
+    offensiveRebounds: 0,
+    defensiveRebounds: 0,
+    assists: 0,
+    threePointersMade: 0,
+    threePointersAttempted: 0,
+    steals: 0,
+    blocks: 0,
+    fouls: 0,
+  });
+};
 
-  const status = summary?.status ?? fallbackGame?.status ?? {};
-  const isLive = status?.state === 'in';
-
-  const opponent = summary?.opponent ?? fallbackGame?.opponent ?? null;
-  const teamScore = summary?.team?.score ?? fallbackGame?.teamScore ?? null;
-  const opponentScore = opponent ? opponent.score ?? fallbackGame?.opponentScore ?? null : fallbackGame?.opponentScore ?? null;
-
-  const teamName = team?.shortName ?? 'Team';
-  const teamAbbreviation = team?.abbreviation ?? 'TEA';
-
-  const matchupLabel = fallbackGame
-    ? `${fallbackGame.isHome ? 'vs' : '@'} ${fallbackGame.opponent?.shortName ?? opponent?.shortName ?? ''}`
-    : opponent?.shortName
-    ? `vs ${opponent.shortName}`
-    : teamName;
-
-  const clockLabel = isLive
-    ? `${status.displayClock || 'LIVE'} • Q${status.period ?? '—'}`
-    : status.detail || fallbackGame?.status?.shortDetail || 'Final';
-
-  const players = summary?.players ?? { team: [], opponent: [] };
-  const teamPlayers = players.team ?? [];
-  const opponentPlayers = players.opponent ?? [];
-  const hasAnyPlayers = teamPlayers.length > 0 || opponentPlayers.length > 0;
-
-  const teamStats = summary?.team?.stats;
-  const opponentStats = summary?.opponent?.stats;
-
-  const renderTeamStats = (stats, alignRight = false) => {
-    if (!stats) return null;
-    const rowClass = `flex items-center gap-2 ${alignRight ? 'justify-end' : 'justify-start'}`;
-
-    // Estimate timeouts
-    let timeoutsDisplay = '-';
-    if (stats.timeoutsRemaining !== null && stats.timeoutsRemaining !== undefined) {
-      timeoutsDisplay = stats.timeoutsRemaining;
-    } else if (stats.timeoutsUsed !== undefined) {
-      // Rough estimate (7 per game standard)
-      timeoutsDisplay = Math.max(0, 7 - stats.timeoutsUsed);
-    }
-    
-    // If game is final, timeouts usually meaningless (0), but if computed from used, shows remaining.
-    // For completed games, maybe hide or show 0?
-    if (status.state === 'post') {
-       timeoutsDisplay = 0;
-    }
-
-    const isBonus = stats.fouls >= 5;
-
-    return (
-      <div className={`mt-3 flex flex-col gap-1 text-[10px] font-mono ${alignRight ? 'items-end' : 'items-start'}`}>
-        <div className={rowClass}>
-          <span className="uppercase tracking-wider text-zinc-600">Fouls</span>
-          <span className={isBonus ? 'font-bold text-orange-400' : 'text-zinc-300'}>{stats.fouls}</span>
-        </div>
-        <div className={rowClass}>
-          <span className="uppercase tracking-wider text-zinc-600">Timeouts</span>
-          <span className="text-zinc-300">{timeoutsDisplay}</span>
-        </div>
-        <div className={rowClass}>
-          <span className="uppercase tracking-wider text-zinc-600">Challenge</span>
-          <span className={stats.challengeUsed ? 'text-zinc-500 decoration-zinc-600' : 'text-emerald-400'}>
-            {stats.challengeUsed ? 'Used' : 'Rem'}
-          </span>
-        </div>
-      </div>
-    );
-  };
-
-  const renderTeamSection = (teamLabel, teamPlayers) => (
+// Team section component with forwarded ref for scroll syncing
+const TeamSection = forwardRef(function TeamSection({ 
+  teamLabel, 
+  teamPlayers, 
+  onScroll,
+  reboundsExpanded,
+  setReboundsExpanded,
+  stocksExpanded,
+  setStocksExpanded 
+}, ref) {
+  const totals = calculateTotals(teamPlayers);
+  
+  return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">{teamLabel}</p>
         <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-zinc-600">BOX</span>
       </div>
-      <div className="overflow-x-auto">
+      <div 
+        className="overflow-x-auto"
+        ref={ref}
+        onScroll={onScroll}
+      >
         <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-[0.3em] text-zinc-500">
@@ -208,10 +182,149 @@ const BoxScore = ({ summary, loading, fallbackGame, team }) => {
               );
             })}
           </tbody>
+          {totals && (
+            <tfoot>
+              <tr className="border-t-2 border-zinc-700 bg-zinc-900/50">
+                <td className="py-2.5 pr-6 font-sans font-semibold text-zinc-100">TOTALS</td>
+                <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.minutes}</td>
+                <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.points}</td>
+                {reboundsExpanded ? (
+                  <>
+                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.offensiveRebounds}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.defensiveRebounds}</td>
+                  </>
+                ) : (
+                  <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
+                    {totals.offensiveRebounds + totals.defensiveRebounds}
+                  </td>
+                )}
+                <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.assists}</td>
+                <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
+                  {totals.threePointersMade}-{totals.threePointersAttempted}
+                </td>
+                {stocksExpanded ? (
+                  <>
+                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.steals}</td>
+                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.blocks}</td>
+                  </>
+                ) : (
+                  <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
+                    {totals.steals + totals.blocks}
+                  </td>
+                )}
+                <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.fouls}</td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>
   );
+});
+
+const BoxScore = ({ summary, loading, fallbackGame, team }) => {
+  const [reboundsExpanded, setReboundsExpanded] = useState(false);
+  const [stocksExpanded, setStocksExpanded] = useState(false);
+  
+  // Refs for synced scrolling
+  const teamScrollRef = useRef(null);
+  const opponentScrollRef = useRef(null);
+  const isScrollingSynced = useRef(false);
+
+  const handleTeamScroll = useCallback(() => {
+    if (isScrollingSynced.current) return;
+    isScrollingSynced.current = true;
+    
+    if (teamScrollRef.current && opponentScrollRef.current) {
+      opponentScrollRef.current.scrollLeft = teamScrollRef.current.scrollLeft;
+    }
+    
+    requestAnimationFrame(() => {
+      isScrollingSynced.current = false;
+    });
+  }, []);
+
+  const handleOpponentScroll = useCallback(() => {
+    if (isScrollingSynced.current) return;
+    isScrollingSynced.current = true;
+    
+    if (teamScrollRef.current && opponentScrollRef.current) {
+      teamScrollRef.current.scrollLeft = opponentScrollRef.current.scrollLeft;
+    }
+    
+    requestAnimationFrame(() => {
+      isScrollingSynced.current = false;
+    });
+  }, []);
+
+  const status = summary?.status ?? fallbackGame?.status ?? {};
+  const isLive = status?.state === 'in';
+
+  const opponent = summary?.opponent ?? fallbackGame?.opponent ?? null;
+  const teamScore = summary?.team?.score ?? fallbackGame?.teamScore ?? null;
+  const opponentScore = opponent ? opponent.score ?? fallbackGame?.opponentScore ?? null : fallbackGame?.opponentScore ?? null;
+
+  const teamName = team?.shortName ?? 'Team';
+  const teamAbbreviation = team?.abbreviation ?? 'TEA';
+
+  const matchupLabel = fallbackGame
+    ? `${fallbackGame.isHome ? 'vs' : '@'} ${fallbackGame.opponent?.shortName ?? opponent?.shortName ?? ''}`
+    : opponent?.shortName
+    ? `vs ${opponent.shortName}`
+    : teamName;
+
+  const clockLabel = isLive
+    ? `${status.displayClock || 'LIVE'} • Q${status.period ?? '—'}`
+    : status.detail || fallbackGame?.status?.shortDetail || 'Final';
+
+  const players = summary?.players ?? { team: [], opponent: [] };
+  const teamPlayers = players.team ?? [];
+  const opponentPlayers = players.opponent ?? [];
+  const hasAnyPlayers = teamPlayers.length > 0 || opponentPlayers.length > 0;
+
+  const teamStats = summary?.team?.stats;
+  const opponentStats = summary?.opponent?.stats;
+
+  const renderTeamStats = (stats, alignRight = false) => {
+    if (!stats) return null;
+    const rowClass = `flex items-center gap-2 ${alignRight ? 'justify-end' : 'justify-start'}`;
+
+    // Estimate timeouts
+    let timeoutsDisplay = '-';
+    if (stats.timeoutsRemaining !== null && stats.timeoutsRemaining !== undefined) {
+      timeoutsDisplay = stats.timeoutsRemaining;
+    } else if (stats.timeoutsUsed !== undefined) {
+      // Rough estimate (7 per game standard)
+      timeoutsDisplay = Math.max(0, 7 - stats.timeoutsUsed);
+    }
+    
+    // If game is final, timeouts usually meaningless (0), but if computed from used, shows remaining.
+    // For completed games, maybe hide or show 0?
+    if (status.state === 'post') {
+       timeoutsDisplay = 0;
+    }
+
+    const isBonus = stats.fouls >= 5;
+
+    return (
+      <div className={`mt-3 flex flex-col gap-1 text-[10px] font-mono ${alignRight ? 'items-end' : 'items-start'}`}>
+        <div className={rowClass}>
+          <span className="uppercase tracking-wider text-zinc-600">Fouls</span>
+          <span className={isBonus ? 'font-bold text-orange-400' : 'text-zinc-300'}>{stats.fouls}</span>
+        </div>
+        <div className={rowClass}>
+          <span className="uppercase tracking-wider text-zinc-600">Timeouts</span>
+          <span className="text-zinc-300">{timeoutsDisplay}</span>
+        </div>
+        <div className={rowClass}>
+          <span className="uppercase tracking-wider text-zinc-600">Challenge</span>
+          <span className={stats.challengeUsed ? 'text-zinc-500 decoration-zinc-600' : 'text-emerald-400'}>
+            {stats.challengeUsed ? 'Used' : 'Rem'}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   const renderTable = () => {
     if (loading) {
@@ -238,8 +351,30 @@ const BoxScore = ({ summary, loading, fallbackGame, team }) => {
 
     return (
       <div className="space-y-10">
-        {teamPlayers.length > 0 && renderTeamSection(teamName, teamPlayers)}
-        {opponentPlayers.length > 0 && renderTeamSection(opponentLabel, opponentPlayers)}
+        {teamPlayers.length > 0 && (
+          <TeamSection
+            ref={teamScrollRef}
+            teamLabel={teamName}
+            teamPlayers={teamPlayers}
+            onScroll={handleTeamScroll}
+            reboundsExpanded={reboundsExpanded}
+            setReboundsExpanded={setReboundsExpanded}
+            stocksExpanded={stocksExpanded}
+            setStocksExpanded={setStocksExpanded}
+          />
+        )}
+        {opponentPlayers.length > 0 && (
+          <TeamSection
+            ref={opponentScrollRef}
+            teamLabel={opponentLabel}
+            teamPlayers={opponentPlayers}
+            onScroll={handleOpponentScroll}
+            reboundsExpanded={reboundsExpanded}
+            setReboundsExpanded={setReboundsExpanded}
+            stocksExpanded={stocksExpanded}
+            setStocksExpanded={setStocksExpanded}
+          />
+        )}
       </div>
     );
   };
