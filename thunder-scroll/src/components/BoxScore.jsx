@@ -90,12 +90,6 @@ const TeamSection = forwardRef(function TeamSection({
               <th className="py-2 pr-6 font-sans">Player</th>
               <th className="py-2 px-3 text-right font-mono">MIN</th>
               <th className="py-2 px-3 text-right font-mono">PTS</th>
-              {showAllStats && (
-                <>
-                  <th className="py-2 px-3 text-right font-mono">FG</th>
-                  <th className="py-2 px-3 text-right font-mono">FT</th>
-                </>
-              )}
               {reboundsExpanded ? (
                 <>
                   <th
@@ -123,7 +117,13 @@ const TeamSection = forwardRef(function TeamSection({
                 </th>
               )}
               <th className="py-2 px-3 text-right font-mono">AST</th>
+              {showAllStats && (
+                <th className="py-2 px-3 text-right font-mono">2P</th>
+              )}
               <th className="py-2 px-3 text-right font-mono">3P</th>
+              {showAllStats && (
+                <th className="py-2 px-3 text-right font-mono">FT</th>
+              )}
               {stocksExpanded ? (
                 <>
                   <th
@@ -174,16 +174,6 @@ const TeamSection = forwardRef(function TeamSection({
                   </td>
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.minutes}</td>
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.points}</td>
-                  {showAllStats && (
-                    <>
-                      <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
-                        {player.fieldGoalsMade}-{player.fieldGoalsAttempted}
-                      </td>
-                      <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
-                        {player.freeThrowsMade}-{player.freeThrowsAttempted}
-                      </td>
-                    </>
-                  )}
                   {reboundsExpanded ? (
                     <>
                       <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.offensiveRebounds}</td>
@@ -195,9 +185,19 @@ const TeamSection = forwardRef(function TeamSection({
                     </td>
                   )}
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.assists}</td>
+                  {showAllStats && (
+                    <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
+                      {(player.fieldGoalsMade ?? 0) - (player.threePointersMade ?? 0)}-{(player.fieldGoalsAttempted ?? 0) - (player.threePointersAttempted ?? 0)}
+                    </td>
+                  )}
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
                     {player.threePointersMade}-{player.threePointersAttempted}
                   </td>
+                  {showAllStats && (
+                    <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>
+                      {player.freeThrowsMade}-{player.freeThrowsAttempted}
+                    </td>
+                  )}
                   {stocksExpanded ? (
                     <>
                       <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.steals ?? 0}</td>
@@ -219,16 +219,6 @@ const TeamSection = forwardRef(function TeamSection({
                 <td className="py-2.5 pr-6 font-sans font-semibold text-zinc-100">TOTALS</td>
                 <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.minutes}</td>
                 <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.points}</td>
-                {showAllStats && (
-                  <>
-                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
-                      {totals.fieldGoalsMade}-{totals.fieldGoalsAttempted}
-                    </td>
-                    <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
-                      {totals.freeThrowsMade}-{totals.freeThrowsAttempted}
-                    </td>
-                  </>
-                )}
                 {reboundsExpanded ? (
                   <>
                     <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.offensiveRebounds}</td>
@@ -240,9 +230,19 @@ const TeamSection = forwardRef(function TeamSection({
                   </td>
                 )}
                 <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.assists}</td>
+                {showAllStats && (
+                  <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
+                    {totals.fieldGoalsMade - totals.threePointersMade}-{totals.fieldGoalsAttempted - totals.threePointersAttempted}
+                  </td>
+                )}
                 <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
                   {totals.threePointersMade}-{totals.threePointersAttempted}
                 </td>
+                {showAllStats && (
+                  <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">
+                    {totals.freeThrowsMade}-{totals.freeThrowsAttempted}
+                  </td>
+                )}
                 {stocksExpanded ? (
                   <>
                     <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.steals}</td>
@@ -260,16 +260,6 @@ const TeamSection = forwardRef(function TeamSection({
                 <td className="py-1.5 pr-6 font-sans text-[10px] uppercase tracking-wider text-zinc-500"></td>
                 <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
                 <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
-                {showAllStats && (
-                  <>
-                    <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-400">
-                      {calcPercent(totals.fieldGoalsMade, totals.fieldGoalsAttempted)}
-                    </td>
-                    <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-400">
-                      {calcPercent(totals.freeThrowsMade, totals.freeThrowsAttempted)}
-                    </td>
-                  </>
-                )}
                 {reboundsExpanded ? (
                   <>
                     <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
@@ -279,9 +269,19 @@ const TeamSection = forwardRef(function TeamSection({
                   <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
                 )}
                 <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                {showAllStats && (
+                  <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-400">
+                    {calcPercent(totals.fieldGoalsMade - totals.threePointersMade, totals.fieldGoalsAttempted - totals.threePointersAttempted)}
+                  </td>
+                )}
                 <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-400">
                   {calcPercent(totals.threePointersMade, totals.threePointersAttempted)}
                 </td>
+                {showAllStats && (
+                  <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-400">
+                    {calcPercent(totals.freeThrowsMade, totals.freeThrowsAttempted)}
+                  </td>
+                )}
                 {stocksExpanded ? (
                   <>
                     <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
