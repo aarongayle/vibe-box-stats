@@ -6,6 +6,11 @@ import GameCard from './GameCard';
 import BoxScore from './BoxScore';
 import PlayByPlay from './PlayByPlay';
 import { fetchGameSummary, fetchSchedule, selectActiveGame } from '../utils/api';
+import {
+  resolveNbaGameId,
+  loadNbaPlays,
+  indexNbaActions,
+} from '../utils/nbaVideos';
 import { getTeamBySlug } from '../utils/teams';
 
 const POLL_INTERVAL = 30_000;
@@ -34,6 +39,9 @@ function TeamPage() {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [offline, setOffline] = useState(false);
   const [showPlayByPlay, setShowPlayByPlay] = useState(false);
+  const [nbaGameId, setNbaGameId] = useState(null);
+  const [nbaActions, setNbaActions] = useState([]);
+  const [nbaVideoSupported, setNbaVideoSupported] = useState(true);
   const scheduleListRef = useRef(null);
 
   const loadSchedule = useCallback(async () => {
@@ -98,6 +106,79 @@ function TeamPage() {
     }, POLL_INTERVAL);
     return () => clearInterval(id);
   }, [activeGame?.id, summary?.status?.state, loadSummary]);
+
+  useEffect(() => {
+    if (!showPlayByPlay) return;
+    if (!summary?.competition?.home?.abbreviation || !summary?.competition?.away?.abbreviation) return;
+    if (!summary?.competition?.date) return;
+    if (nbaGameId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const id = await resolveNbaGameId({
+          date: summary.competition.date,
+          homeAbbreviation: summary.competition.home.abbreviation,
+          awayAbbreviation: summary.competition.away.abbreviation,
+        });
+        if (cancelled) return;
+        if (!id) {
+          setNbaVideoSupported(false);
+          return;
+        }
+        setNbaGameId(id);
+        setNbaVideoSupported(true);
+      } catch (error) {
+        console.warn('NBA game id lookup failed', error);
+        if (!cancelled) setNbaVideoSupported(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    showPlayByPlay,
+    summary?.competition?.home?.abbreviation,
+    summary?.competition?.away?.abbreviation,
+    summary?.competition?.date,
+    nbaGameId,
+  ]);
+
+  useEffect(() => {
+    setNbaGameId(null);
+    setNbaActions([]);
+    setNbaVideoSupported(true);
+  }, [activeGame?.id]);
+
+  useEffect(() => {
+    if (!showPlayByPlay || !nbaGameId) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const actions = await loadNbaPlays(nbaGameId);
+        if (!cancelled) setNbaActions(actions);
+      } catch (error) {
+        console.warn('NBA play-by-play load failed', error);
+      }
+    };
+    load();
+
+    if (summary?.status?.state !== 'in') {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const intervalId = setInterval(load, POLL_INTERVAL);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [showPlayByPlay, nbaGameId, summary?.status?.state]);
+
+  const nbaActionIndex = useMemo(() => indexNbaActions(nbaActions), [nbaActions]);
 
   useEffect(() => {
     if (!activeGame?.id || !scheduleListRef.current) return;
@@ -225,6 +306,9 @@ function TeamPage() {
                     loading={loadingSummary && !summary}
                     team={team}
                     opponent={summary?.opponent ?? activeGame?.opponent}
+                    nbaGameId={nbaGameId}
+                    nbaActionIndex={nbaActionIndex}
+                    nbaVideoSupported={nbaVideoSupported}
                   />
                 </div>
               )}

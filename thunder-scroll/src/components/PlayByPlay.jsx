@@ -1,4 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Play, X } from 'lucide-react';
+
+import { findNbaActionForPlay, fetchVideoAsset } from '../utils/nbaVideos';
 
 const formatScore = (play) => {
   if (play.homeScore === null || play.awayScore === null) return null;
@@ -36,7 +39,82 @@ const matchesFilter = (play, filterId) => {
   return true;
 };
 
-const PlayRow = ({ play, teamAbbreviation, opponentAbbreviation }) => {
+const VideoModal = ({ asset, loading, error, play, onClose }) => {
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const videoSrc = asset?.large || asset?.medium || asset?.small || null;
+  const description = asset?.description || play?.text || 'Play replay';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 py-6"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100"
+          aria-label="Close replay"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="aspect-video w-full bg-black">
+          {loading && (
+            <div className="flex h-full w-full items-center justify-center font-mono text-sm text-zinc-500">
+              Loading clip…
+            </div>
+          )}
+          {!loading && error && (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center font-mono text-sm text-rose-400">
+              <span>Couldn&apos;t load NBA clip.</span>
+              <span className="text-xs text-zinc-500">{error}</span>
+            </div>
+          )}
+          {!loading && !error && videoSrc && (
+            <video
+              src={videoSrc}
+              controls
+              autoPlay
+              playsInline
+              className="h-full w-full bg-black"
+            />
+          )}
+          {!loading && !error && !videoSrc && (
+            <div className="flex h-full w-full items-center justify-center font-mono text-sm text-zinc-500">
+              No clip available for this play.
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 py-3">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">NBA replay</p>
+          <p className="mt-1 text-sm text-zinc-200">{description}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PlayRow = ({
+  play,
+  teamAbbreviation,
+  opponentAbbreviation,
+  nbaAction,
+  onReplay,
+}) => {
   const isTeam = play.teamSide === 'team';
   const isOpponent = play.teamSide === 'opponent';
 
@@ -63,7 +141,7 @@ const PlayRow = ({ play, teamAbbreviation, opponentAbbreviation }) => {
         <span className="text-zinc-400">{play.clock || '--:--'}</span>
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
           <span className={isTeam ? 'text-thunder' : 'text-zinc-400'}>{teamLabel}</span>
           {play.type && <span className="text-zinc-600">·</span>}
           {play.type && <span className="text-zinc-500">{play.type}</span>}
@@ -77,17 +155,40 @@ const PlayRow = ({ play, teamAbbreviation, opponentAbbreviation }) => {
           {play.text || '—'}
         </p>
       </div>
-      {scoreLabel && (
-        <div className="flex-shrink-0 text-right font-mono text-xs text-zinc-400">
-          {scoreLabel}
-        </div>
-      )}
+      <div className="flex flex-shrink-0 flex-col items-end gap-1">
+        {scoreLabel && (
+          <div className="text-right font-mono text-xs text-zinc-400">{scoreLabel}</div>
+        )}
+        {nbaAction && (
+          <button
+            type="button"
+            onClick={() => onReplay(play, nbaAction)}
+            className="flex items-center gap-1 rounded-full border border-thunder/50 bg-thunder/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-thunder transition-colors hover:bg-thunder/20"
+            title="Watch NBA replay"
+          >
+            <Play className="h-3 w-3" />
+            Replay
+          </button>
+        )}
+      </div>
     </li>
   );
 };
 
-const PlayByPlay = ({ plays, loading, team, opponent }) => {
+const PlayByPlay = ({
+  plays,
+  loading,
+  team,
+  opponent,
+  nbaGameId,
+  nbaActionIndex,
+  nbaVideoSupported,
+}) => {
   const [filter, setFilter] = useState('all');
+  const [activeReplay, setActiveReplay] = useState(null);
+  const [replayAsset, setReplayAsset] = useState(null);
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [replayError, setReplayError] = useState(null);
 
   const teamAbbreviation = team?.abbreviation ?? 'TEA';
   const opponentAbbreviation = opponent?.abbreviation ?? 'OPP';
@@ -96,6 +197,42 @@ const PlayByPlay = ({ plays, loading, team, opponent }) => {
     if (!plays || plays.length === 0) return [];
     return plays.filter((play) => matchesFilter(play, filter));
   }, [plays, filter]);
+
+  const matchedCount = useMemo(() => {
+    if (!nbaActionIndex || !plays) return 0;
+    let count = 0;
+    for (const play of plays) {
+      if (findNbaActionForPlay(play, nbaActionIndex)) count += 1;
+    }
+    return count;
+  }, [plays, nbaActionIndex]);
+
+  const handleReplay = async (play, nbaAction) => {
+    if (!nbaGameId || !nbaAction) return;
+    setActiveReplay({ play, nbaAction });
+    setReplayAsset(null);
+    setReplayError(null);
+    setReplayLoading(true);
+    try {
+      const asset = await fetchVideoAsset(nbaGameId, nbaAction.actionNumber);
+      if (!asset) {
+        setReplayError('No clip is available for this play.');
+      } else {
+        setReplayAsset(asset);
+      }
+    } catch (error) {
+      setReplayError(error?.message || 'Failed to load NBA clip.');
+    } finally {
+      setReplayLoading(false);
+    }
+  };
+
+  const handleCloseReplay = () => {
+    setActiveReplay(null);
+    setReplayAsset(null);
+    setReplayError(null);
+    setReplayLoading(false);
+  };
 
   const renderBody = () => {
     if (loading && (!plays || plays.length === 0)) {
@@ -124,14 +261,19 @@ const PlayByPlay = ({ plays, loading, team, opponent }) => {
 
     return (
       <ol className="space-y-1.5">
-        {filteredPlays.map((play) => (
-          <PlayRow
-            key={play.id}
-            play={play}
-            teamAbbreviation={teamAbbreviation}
-            opponentAbbreviation={opponentAbbreviation}
-          />
-        ))}
+        {filteredPlays.map((play) => {
+          const nbaAction = nbaActionIndex ? findNbaActionForPlay(play, nbaActionIndex) : null;
+          return (
+            <PlayRow
+              key={play.id}
+              play={play}
+              teamAbbreviation={teamAbbreviation}
+              opponentAbbreviation={opponentAbbreviation}
+              nbaAction={nbaAction}
+              onReplay={handleReplay}
+            />
+          );
+        })}
       </ol>
     );
   };
@@ -163,7 +305,29 @@ const PlayByPlay = ({ plays, loading, team, opponent }) => {
         )}
       </div>
 
+      {nbaVideoSupported === false && (
+        <p className="font-mono text-[11px] text-zinc-500">
+          NBA replays aren&apos;t available for this game.
+        </p>
+      )}
+      {nbaVideoSupported !== false && nbaGameId && plays && plays.length > 0 && matchedCount > 0 && (
+        <p className="font-mono text-[11px] text-zinc-500">
+          NBA replays available on {matchedCount} of {plays.length} plays — tap{' '}
+          <span className="text-thunder">Replay</span> to watch.
+        </p>
+      )}
+
       {renderBody()}
+
+      {activeReplay && (
+        <VideoModal
+          play={activeReplay.play}
+          asset={replayAsset}
+          loading={replayLoading}
+          error={replayError}
+          onClose={handleCloseReplay}
+        />
+      )}
     </div>
   );
 };

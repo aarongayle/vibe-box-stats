@@ -299,7 +299,17 @@ const parseInjuries = (injuriesData, teamId) => {
   };
 };
 
-const parsePlays = (plays, teamId) => {
+const parseClockToSeconds = (display) => {
+  if (!display || typeof display !== 'string') return null;
+  const match = display.trim().match(/^(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/);
+  if (!match) return null;
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds)) return null;
+  return minutes * 60 + seconds;
+};
+
+const parsePlays = (plays, teamId, abbreviations = {}) => {
   if (!Array.isArray(plays)) return [];
 
   return plays
@@ -315,6 +325,8 @@ const parsePlays = (plays, teamId) => {
         teamSide = playTeamId === teamId ? 'team' : 'opponent';
       }
 
+      const teamAbbreviation = playTeamId ? abbreviations[playTeamId] ?? null : null;
+
       const participants = Array.isArray(play?.participants)
         ? play.participants
             .map((participant) => {
@@ -324,14 +336,17 @@ const parsePlays = (plays, teamId) => {
             .filter(Boolean)
         : [];
 
+      const clockDisplay = play?.clock?.displayValue ?? '';
+
       return {
-        id: play?.id ?? play?.sequenceNumber ?? `${periodNumber}-${play?.clock?.displayValue ?? ''}-${play?.text ?? ''}`,
+        id: play?.id ?? play?.sequenceNumber ?? `${periodNumber}-${clockDisplay}-${play?.text ?? ''}`,
         sequenceNumber: Number(play?.sequenceNumber) || 0,
         text: play?.text ?? '',
         type: play?.type?.text ?? '',
         period: periodNumber,
         periodDisplay,
-        clock: play?.clock?.displayValue ?? '',
+        clock: clockDisplay,
+        clockSeconds: parseClockToSeconds(clockDisplay),
         scoringPlay: Boolean(play?.scoringPlay),
         shootingPlay: Boolean(play?.shootingPlay),
         scoreValue: Number(play?.scoreValue) || 0,
@@ -339,6 +354,7 @@ const parsePlays = (plays, teamId) => {
         awayScore: toNumber(play?.awayScore),
         teamId: playTeamId,
         teamSide,
+        teamAbbreviation,
         participants,
         wallclock: play?.wallclock ?? null,
       };
@@ -486,7 +502,35 @@ export async function fetchGameSummary(gameId, teamId) {
       : null,
     players: parsedPlayers,
     injuries: parseInjuries(data?.injuries, teamId),
-    plays: parsePlays(data?.plays, teamId),
+    plays: parsePlays(data?.plays, teamId, {
+      [teamIdValue]: teamTeam?.abbreviation ?? teamTeam?.shortDisplayName ?? null,
+      [opponentId]: opponentTeam?.abbreviation ?? opponentTeam?.shortDisplayName ?? null,
+    }),
+    competition: {
+      date: data?.header?.competitions?.[0]?.date ?? null,
+      home: (() => {
+        const homeCompetitor = competitors.find((c) => c.homeAway === 'home');
+        const t = homeCompetitor?.team ?? homeCompetitor;
+        return t
+          ? {
+              id: homeCompetitor?.id || t?.id,
+              abbreviation: t?.abbreviation ?? t?.shortDisplayName ?? null,
+              name: t?.displayName ?? t?.name ?? null,
+            }
+          : null;
+      })(),
+      away: (() => {
+        const awayCompetitor = competitors.find((c) => c.homeAway === 'away');
+        const t = awayCompetitor?.team ?? awayCompetitor;
+        return t
+          ? {
+              id: awayCompetitor?.id || t?.id,
+              abbreviation: t?.abbreviation ?? t?.shortDisplayName ?? null,
+              name: t?.displayName ?? t?.name ?? null,
+            }
+          : null;
+      })(),
+    },
     fetchedAt: new Date().toISOString(),
   };
 }
