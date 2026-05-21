@@ -1,13 +1,20 @@
 const STATS_BASE = 'https://stats.nba.com/stats/videoeventsasset';
 
+// Note: function maxDuration is configured via vercel.json (Vercel's plain-JS
+// API functions don't honor `export const config` the same way Next.js does).
+
+// Header set matching what the official Python nba_api uses (which is the most
+// reliable known fingerprint for stats.nba.com from cloud IPs). Notably:
+//   - Referer should be https://stats.nba.com/ (not www.nba.com)
+//   - x-nba-stats-origin / x-nba-stats-token are required
+//   - Connection: keep-alive
 const statsHeaders = {
   Host: 'stats.nba.com',
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
   Accept: 'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.5',
-  Origin: 'https://www.nba.com',
-  Referer: 'https://www.nba.com/',
+  Referer: 'https://stats.nba.com/',
   'x-nba-stats-origin': 'stats',
   'x-nba-stats-token': 'true',
   Connection: 'keep-alive',
@@ -53,11 +60,15 @@ export default async function handler(req, res) {
     const url = `${STATS_BASE}?GameEventID=${encodeURIComponent(eventId)}&GameID=${encodeURIComponent(gameId)}`;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     let response;
     try {
-      response = await fetch(url, { headers: statsHeaders, signal: controller.signal });
+      response = await fetch(url, {
+        headers: statsHeaders,
+        signal: controller.signal,
+        redirect: 'follow',
+      });
     } finally {
       clearTimeout(timeoutId);
     }

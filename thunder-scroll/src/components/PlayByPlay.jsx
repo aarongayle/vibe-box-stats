@@ -39,7 +39,7 @@ const matchesFilter = (play, filterId) => {
   return true;
 };
 
-const VideoModal = ({ asset, loading, error, play, onClose }) => {
+const VideoModal = ({ asset, loading, error, play, fallbackUrl, onClose }) => {
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === 'Escape') onClose();
@@ -73,14 +73,27 @@ const VideoModal = ({ asset, loading, error, play, onClose }) => {
 
         <div className="aspect-video w-full bg-black">
           {loading && (
-            <div className="flex h-full w-full items-center justify-center font-mono text-sm text-zinc-500">
-              Loading clip…
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 font-mono text-sm text-zinc-500">
+              <span>Loading clip…</span>
+              <span className="text-[10px] uppercase tracking-wider text-zinc-600">
+                first load can take ~10s
+              </span>
             </div>
           )}
           {!loading && error && (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-6 text-center font-mono text-sm text-rose-400">
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 px-6 text-center font-mono text-sm text-rose-400">
               <span>Couldn&apos;t load NBA clip.</span>
               <span className="text-xs text-zinc-500">{error}</span>
+              {fallbackUrl && (
+                <a
+                  href={fallbackUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="rounded-full border border-thunder/50 bg-thunder/10 px-3 py-1 text-xs uppercase tracking-wider text-thunder hover:bg-thunder/20"
+                >
+                  Open on NBA.com →
+                </a>
+              )}
             </div>
           )}
           {!loading && !error && videoSrc && (
@@ -175,6 +188,25 @@ const PlayRow = ({
   );
 };
 
+const buildNbaEventUrl = (nbaGameId, nbaAction) => {
+  if (!nbaGameId || !nbaAction?.actionNumber) return null;
+  const seasonStart = (() => {
+    if (!nbaGameId || nbaGameId.length < 5) return null;
+    const yearTwoDigit = nbaGameId.slice(3, 5);
+    const year = Number(yearTwoDigit);
+    if (!Number.isFinite(year)) return null;
+    const fullYear = 2000 + year;
+    return `${fullYear}-${String(fullYear + 1).slice(-2)}`;
+  })();
+  const params = new URLSearchParams({
+    GameEventID: String(nbaAction.actionNumber),
+    GameID: nbaGameId,
+    flag: '1',
+  });
+  if (seasonStart) params.set('Season', seasonStart);
+  return `https://www.nba.com/stats/events?${params.toString()}`;
+};
+
 const PlayByPlay = ({
   plays,
   loading,
@@ -189,6 +221,9 @@ const PlayByPlay = ({
   const [replayAsset, setReplayAsset] = useState(null);
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayError, setReplayError] = useState(null);
+  const fallbackUrl = activeReplay
+    ? buildNbaEventUrl(nbaGameId, activeReplay.nbaAction)
+    : null;
 
   const teamAbbreviation = team?.abbreviation ?? 'TEA';
   const opponentAbbreviation = opponent?.abbreviation ?? 'OPP';
@@ -325,6 +360,7 @@ const PlayByPlay = ({
           asset={replayAsset}
           loading={replayLoading}
           error={replayError}
+          fallbackUrl={fallbackUrl}
           onClose={handleCloseReplay}
         />
       )}
