@@ -151,6 +151,7 @@ const TeamSection = forwardRef(function TeamSection({
                 </th>
               )}
               <th className="py-2 px-3 text-right font-mono">PF</th>
+              <th className="py-2 pl-3 pr-0 text-right font-mono">+/-</th>
             </tr>
           </thead>
           <tbody>
@@ -209,6 +210,15 @@ const TeamSection = forwardRef(function TeamSection({
                     </td>
                   )}
                   <td className={`py-2.5 px-3 text-right font-mono ${textColor}`}>{player.fouls}</td>
+                  <td className={`py-2.5 pl-3 pr-0 text-right font-mono ${
+                    (player.plusMinus ?? 0) > 0
+                      ? 'text-emerald-400'
+                      : (player.plusMinus ?? 0) < 0
+                      ? 'text-rose-400'
+                      : textColor
+                  }`}>
+                    {(player.plusMinus ?? 0) > 0 ? `+${player.plusMinus}` : player.plusMinus ?? 0}
+                  </td>
                 </tr>
               );
             })}
@@ -254,6 +264,7 @@ const TeamSection = forwardRef(function TeamSection({
                   </td>
                 )}
                 <td className="py-2.5 px-3 text-right font-mono font-semibold text-zinc-100">{totals.fouls}</td>
+                <td className="py-2.5 pl-3 pr-0 text-right font-mono font-semibold text-zinc-500">—</td>
               </tr>
               {/* Percentages row */}
               <tr className="bg-zinc-900/30">
@@ -291,6 +302,7 @@ const TeamSection = forwardRef(function TeamSection({
                   <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
                 )}
                 <td className="py-1.5 px-3 text-right font-mono text-[10px] text-zinc-500"></td>
+                <td className="py-1.5 pl-3 pr-0 text-right font-mono text-[10px] text-zinc-500"></td>
               </tr>
             </tfoot>
           )}

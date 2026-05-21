@@ -135,6 +135,7 @@ const parseTeamPlayers = (teamSection) => {
   const foulsIdx = keyIndex.fouls ?? keyIndex.foulsPersonal;
   const stealsIdx = keyIndex.steals;
   const blocksIdx = keyIndex.blocks;
+  const plusMinusIdx = keyIndex.plusMinus;
   const threesIdx = keyIndex['threePointFieldGoalsMade-threePointFieldGoalsAttempted'];
   const fgIdx = keyIndex['fieldGoalsMade-fieldGoalsAttempted'];
   const ftIdx = keyIndex['freeThrowsMade-freeThrowsAttempted'];
@@ -187,6 +188,7 @@ const parseTeamPlayers = (teamSection) => {
           assists: assistsIdx !== undefined ? Number(stats[assistsIdx]) || 0 : 0,
           steals: stealsIdx !== undefined ? Number(stats[stealsIdx]) || 0 : 0,
           blocks: blocksIdx !== undefined ? Number(stats[blocksIdx]) || 0 : 0,
+          plusMinus: plusMinusIdx !== undefined ? Number(stats[plusMinusIdx]) || 0 : 0,
           fouls: foulsIdx !== undefined ? Number(stats[foulsIdx]) || 0 : 0,
           threePointersMade: threesStat.made,
           threePointersAttempted: threesStat.attempted,
