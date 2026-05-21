@@ -30,19 +30,19 @@ const toNbaTricode = (espnAbbr) => {
   return ABBREVIATION_OVERRIDES[up] || up;
 };
 
-const toIsoDate = (value) => {
+const toIsoDateTime = (value) => {
   if (!value) return null;
   try {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return null;
-    return date.toISOString().slice(0, 10);
+    return date.toISOString();
   } catch {
     return null;
   }
 };
 
 export async function resolveNbaGameId({ date, homeAbbreviation, awayAbbreviation }) {
-  const isoDate = toIsoDate(date);
+  const isoDate = toIsoDateTime(date);
   const home = toNbaTricode(homeAbbreviation);
   const away = toNbaTricode(awayAbbreviation);
 

@@ -30,9 +30,37 @@ async function loadSchedule() {
 
 const normalizeTri = (value) => (value ? String(value).toUpperCase().trim() : '');
 
-const sameDay = (gameDateUtc, targetIso) => {
-  if (!gameDateUtc || !targetIso) return false;
-  return gameDateUtc.slice(0, 10) === targetIso.slice(0, 10);
+// ESPN's competition.date is the actual tip-off in UTC (e.g. 2026-05-21T00:30:00Z).
+// NBA's schedule exposes both a date-only field (gameDateUTC, e.g. 2026-05-20T04:00:00Z
+// which represents "May 20 Eastern") AND an actual tip-off time (gameDateTimeUTC, e.g.
+// 2026-05-21T00:30:00Z). To handle both Eastern-game-date and UTC-tipoff representations,
+// we accept a match if the target ISO date is within ~24h of any of the candidate fields.
+const MATCH_WINDOW_MS = 18 * 60 * 60 * 1000;
+
+// Returns the tightest tip-off mismatch (ms) between an NBA schedule entry and the
+// target ISO date. ESPN's competition.date is the tip-off UTC; NBA exposes that as
+// gameDateTimeUTC and also a date-only field (gameDateUTC) shifted to Eastern.
+// We try multiple candidate fields and pick the smallest absolute delta.
+const tipoffDeltaMs = (game, targetIso) => {
+  if (!targetIso) return Infinity;
+  const targetMs = Date.parse(targetIso);
+  if (Number.isNaN(targetMs)) return Infinity;
+
+  const candidates = [
+    game?.gameDateTimeUTC,
+    game?.gameDateTimeEst,
+    game?.gameDateUTC,
+    game?.gameDateEst,
+  ].filter(Boolean);
+
+  let best = Infinity;
+  for (const candidate of candidates) {
+    const candidateMs = Date.parse(candidate);
+    if (Number.isNaN(candidateMs)) continue;
+    const delta = Math.abs(candidateMs - targetMs);
+    if (delta < best) best = delta;
+  }
+  return best;
 };
 
 export default async function handler(req, res) {
@@ -65,20 +93,21 @@ export default async function handler(req, res) {
     const gameDates = schedule?.leagueSchedule?.gameDates ?? [];
 
     let match = null;
+    let bestDelta = Infinity;
 
     for (const day of gameDates) {
       const dayGames = day?.games ?? [];
       for (const game of dayGames) {
-        const gameDateUtc = game?.gameDateUTC || game?.gameDateTimeUTC || game?.gameDateEst;
-        if (!sameDay(gameDateUtc, date)) continue;
         const homeTri = normalizeTri(game?.homeTeam?.teamTricode);
         const awayTri = normalizeTri(game?.awayTeam?.teamTricode);
-        if (homeTri === targetHome && awayTri === targetAway) {
+        if (homeTri !== targetHome || awayTri !== targetAway) continue;
+        const delta = tipoffDeltaMs(game, date);
+        if (delta > MATCH_WINDOW_MS) continue;
+        if (delta < bestDelta) {
           match = game;
-          break;
+          bestDelta = delta;
         }
       }
-      if (match) break;
     }
 
     if (!match) {
