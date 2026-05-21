@@ -166,32 +166,7 @@ export function findNbaActionForPlay(play, indexedActions) {
   return best ?? candidates[0];
 }
 
-const videoCache = new Map();
-
-export async function fetchVideoAsset(nbaGameId, eventId) {
-  if (!nbaGameId || eventId == null) return null;
-  const key = `${nbaGameId}:${eventId}`;
-  if (videoCache.has(key)) return videoCache.get(key);
-
-  const url = buildUrl(
-    `/nba-video?gameId=${encodeURIComponent(nbaGameId)}&eventId=${encodeURIComponent(eventId)}`
-  );
-  const response = await fetch(url, defaultFetchOptions);
-  if (response.status === 404) {
-    videoCache.set(key, null);
-    return null;
-  }
-  if (!response.ok) {
-    let detail = '';
-    try {
-      const body = await response.json();
-      detail = body?.error || '';
-    } catch {
-      // ignore body parse failure
-    }
-    throw new Error(detail || `NBA video request failed (${response.status})`);
-  }
-  const data = await response.json();
-  videoCache.set(key, data);
-  return data;
-}
+// Note: we previously fetched the .mp4 URL directly via stats.nba.com's
+// videoeventsasset endpoint, but that host silently blocks Vercel egress IPs
+// via Akamai. Linking to NBA.com instead is reliable and gives us the
+// official NBA player in a single click.

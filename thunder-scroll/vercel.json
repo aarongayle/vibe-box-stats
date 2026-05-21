@@ -6,9 +6,6 @@
     }
   ],
   "functions": {
-    "api/nba-video.js": {
-      "maxDuration": 25
-    },
     "api/nba-game.js": {
       "maxDuration": 20
     }
