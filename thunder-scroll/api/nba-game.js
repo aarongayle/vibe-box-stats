@@ -30,6 +30,31 @@ async function loadSchedule() {
 
 const normalizeTri = (value) => (value ? String(value).toUpperCase().trim() : '');
 
+// ESPN abbreviations sometimes differ from NBA tricodes (e.g. "SA" vs "SAS").
+// Accept a tricode match if any of: exact match, known alias, or a prefix
+// relationship (ESPN's short code is a prefix of the NBA tricode, or vice versa).
+const TRI_ALIASES = {
+  SA: 'SAS',
+  GS: 'GSW',
+  NO: 'NOP',
+  UTAH: 'UTA',
+  WSH: 'WAS',
+  NY: 'NYK',
+  SAN: 'SAS',
+};
+
+const matchesTricode = (candidate, target) => {
+  if (!candidate || !target) return false;
+  const c = normalizeTri(candidate);
+  const t = normalizeTri(target);
+  if (c === t) return true;
+  if (TRI_ALIASES[t] === c) return true;
+  if (TRI_ALIASES[c] === t) return true;
+  if (t.length >= 2 && c.startsWith(t)) return true;
+  if (c.length >= 2 && t.startsWith(c)) return true;
+  return false;
+};
+
 // ESPN's competition.date is the actual tip-off in UTC (e.g. 2026-05-21T00:30:00Z).
 // NBA's schedule exposes both a date-only field (gameDateUTC, e.g. 2026-05-20T04:00:00Z
 // which represents "May 20 Eastern") AND an actual tip-off time (gameDateTimeUTC, e.g.
@@ -98,9 +123,8 @@ export default async function handler(req, res) {
     for (const day of gameDates) {
       const dayGames = day?.games ?? [];
       for (const game of dayGames) {
-        const homeTri = normalizeTri(game?.homeTeam?.teamTricode);
-        const awayTri = normalizeTri(game?.awayTeam?.teamTricode);
-        if (homeTri !== targetHome || awayTri !== targetAway) continue;
+        if (!matchesTricode(game?.homeTeam?.teamTricode, targetHome)) continue;
+        if (!matchesTricode(game?.awayTeam?.teamTricode, targetAway)) continue;
         const delta = tipoffDeltaMs(game, date);
         if (delta > MATCH_WINDOW_MS) continue;
         if (delta < bestDelta) {

@@ -19,14 +19,21 @@ const buildUrl = (path) => {
   return `${API_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
-// ESPN <-> NBA team abbreviation mismatches.
+// ESPN abbreviations <-> NBA tricodes. ESPN uses shorter forms for several teams
+// (e.g. "SA" vs NBA's "SAS"). Map them here so the schedule lookup matches.
 const ABBREVIATION_OVERRIDES = {
-  // ESPN -> NBA. Most are identical; add edge cases here if discovered.
+  SA: 'SAS',
+  GS: 'GSW',
+  NO: 'NOP',
+  UTAH: 'UTA',
+  WSH: 'WAS',
+  NY: 'NYK',
+  SAN: 'SAS',
 };
 
 const toNbaTricode = (espnAbbr) => {
   if (!espnAbbr) return '';
-  const up = String(espnAbbr).toUpperCase();
+  const up = String(espnAbbr).toUpperCase().trim();
   return ABBREVIATION_OVERRIDES[up] || up;
 };
 
