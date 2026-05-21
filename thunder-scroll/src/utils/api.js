@@ -299,6 +299,72 @@ const parseInjuries = (injuriesData, teamId) => {
   };
 };
 
+const parseClockToSeconds = (display) => {
+  if (!display || typeof display !== 'string') return null;
+  const match = display.trim().match(/^(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/);
+  if (!match) return null;
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds)) return null;
+  return minutes * 60 + seconds;
+};
+
+const parsePlays = (plays, teamId, abbreviations = {}) => {
+  if (!Array.isArray(plays)) return [];
+
+  return plays
+    .map((play) => {
+      const periodNumber = play?.period?.number ?? 0;
+      const periodDisplay =
+        play?.period?.displayValue ||
+        (periodNumber > 4 ? `OT${periodNumber - 4}` : periodNumber ? `Q${periodNumber}` : '');
+      const playTeamId = play?.team?.id ?? null;
+
+      let teamSide = null;
+      if (playTeamId) {
+        teamSide = playTeamId === teamId ? 'team' : 'opponent';
+      }
+
+      const teamAbbreviation = playTeamId ? abbreviations[playTeamId] ?? null : null;
+
+      const participants = Array.isArray(play?.participants)
+        ? play.participants
+            .map((participant) => {
+              const athlete = participant?.athlete ?? participant;
+              return athlete?.displayName || athlete?.shortName || null;
+            })
+            .filter(Boolean)
+        : [];
+
+      const clockDisplay = play?.clock?.displayValue ?? '';
+
+      return {
+        id: play?.id ?? play?.sequenceNumber ?? `${periodNumber}-${clockDisplay}-${play?.text ?? ''}`,
+        sequenceNumber: Number(play?.sequenceNumber) || 0,
+        text: play?.text ?? '',
+        type: play?.type?.text ?? '',
+        period: periodNumber,
+        periodDisplay,
+        clock: clockDisplay,
+        clockSeconds: parseClockToSeconds(clockDisplay),
+        scoringPlay: Boolean(play?.scoringPlay),
+        shootingPlay: Boolean(play?.shootingPlay),
+        scoreValue: Number(play?.scoreValue) || 0,
+        homeScore: toNumber(play?.homeScore),
+        awayScore: toNumber(play?.awayScore),
+        teamId: playTeamId,
+        teamSide,
+        teamAbbreviation,
+        participants,
+        wallclock: play?.wallclock ?? null,
+      };
+    })
+    .sort((a, b) => {
+      if (a.period !== b.period) return b.period - a.period;
+      return b.sequenceNumber - a.sequenceNumber;
+    });
+};
+
 const calculateGameStats = (plays, currentPeriod) => {
   const teamStats = {};
 
@@ -436,6 +502,35 @@ export async function fetchGameSummary(gameId, teamId) {
       : null,
     players: parsedPlayers,
     injuries: parseInjuries(data?.injuries, teamId),
+    plays: parsePlays(data?.plays, teamId, {
+      [teamIdValue]: teamTeam?.abbreviation ?? teamTeam?.shortDisplayName ?? null,
+      [opponentId]: opponentTeam?.abbreviation ?? opponentTeam?.shortDisplayName ?? null,
+    }),
+    competition: {
+      date: data?.header?.competitions?.[0]?.date ?? null,
+      home: (() => {
+        const homeCompetitor = competitors.find((c) => c.homeAway === 'home');
+        const t = homeCompetitor?.team ?? homeCompetitor;
+        return t
+          ? {
+              id: homeCompetitor?.id || t?.id,
+              abbreviation: t?.abbreviation ?? t?.shortDisplayName ?? null,
+              name: t?.displayName ?? t?.name ?? null,
+            }
+          : null;
+      })(),
+      away: (() => {
+        const awayCompetitor = competitors.find((c) => c.homeAway === 'away');
+        const t = awayCompetitor?.team ?? awayCompetitor;
+        return t
+          ? {
+              id: awayCompetitor?.id || t?.id,
+              abbreviation: t?.abbreviation ?? t?.shortDisplayName ?? null,
+              name: t?.displayName ?? t?.name ?? null,
+            }
+          : null;
+      })(),
+    },
     fetchedAt: new Date().toISOString(),
   };
 }

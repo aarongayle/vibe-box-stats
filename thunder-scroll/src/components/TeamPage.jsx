@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { ListOrdered, RefreshCw } from 'lucide-react';
 import { useParams, Link } from 'react-router-dom';
 
 import GameCard from './GameCard';
 import BoxScore from './BoxScore';
+import PlayByPlay from './PlayByPlay';
 import { fetchGameSummary, fetchSchedule, selectActiveGame } from '../utils/api';
+import {
+  resolveNbaGameId,
+  loadNbaPlays,
+  indexNbaActions,
+} from '../utils/nbaVideos';
 import { getTeamBySlug } from '../utils/teams';
 
 const POLL_INTERVAL = 30_000;
@@ -32,6 +38,10 @@ function TeamPage() {
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [showPlayByPlay, setShowPlayByPlay] = useState(false);
+  const [nbaGameId, setNbaGameId] = useState(null);
+  const [nbaActions, setNbaActions] = useState([]);
+  const [nbaVideoSupported, setNbaVideoSupported] = useState(true);
   const scheduleListRef = useRef(null);
 
   const loadSchedule = useCallback(async () => {
@@ -96,6 +106,79 @@ function TeamPage() {
     }, POLL_INTERVAL);
     return () => clearInterval(id);
   }, [activeGame?.id, summary?.status?.state, loadSummary]);
+
+  useEffect(() => {
+    if (!showPlayByPlay) return;
+    if (!summary?.competition?.home?.abbreviation || !summary?.competition?.away?.abbreviation) return;
+    if (!summary?.competition?.date) return;
+    if (nbaGameId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const id = await resolveNbaGameId({
+          date: summary.competition.date,
+          homeAbbreviation: summary.competition.home.abbreviation,
+          awayAbbreviation: summary.competition.away.abbreviation,
+        });
+        if (cancelled) return;
+        if (!id) {
+          setNbaVideoSupported(false);
+          return;
+        }
+        setNbaGameId(id);
+        setNbaVideoSupported(true);
+      } catch (error) {
+        console.warn('NBA game id lookup failed', error);
+        if (!cancelled) setNbaVideoSupported(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    showPlayByPlay,
+    summary?.competition?.home?.abbreviation,
+    summary?.competition?.away?.abbreviation,
+    summary?.competition?.date,
+    nbaGameId,
+  ]);
+
+  useEffect(() => {
+    setNbaGameId(null);
+    setNbaActions([]);
+    setNbaVideoSupported(true);
+  }, [activeGame?.id]);
+
+  useEffect(() => {
+    if (!showPlayByPlay || !nbaGameId) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const actions = await loadNbaPlays(nbaGameId);
+        if (!cancelled) setNbaActions(actions);
+      } catch (error) {
+        console.warn('NBA play-by-play load failed', error);
+      }
+    };
+    load();
+
+    if (summary?.status?.state !== 'in') {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const intervalId = setInterval(load, POLL_INTERVAL);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [showPlayByPlay, nbaGameId, summary?.status?.state]);
+
+  const nbaActionIndex = useMemo(() => indexNbaActions(nbaActions), [nbaActions]);
 
   useEffect(() => {
     if (!activeGame?.id || !scheduleListRef.current) return;
@@ -188,7 +271,49 @@ function TeamPage() {
         </section>
 
         {activeGame ? (
-          <BoxScore summary={summary} loading={loadingSummary && !summary} fallbackGame={activeGame} team={team} />
+          <>
+            <BoxScore summary={summary} loading={loadingSummary && !summary} fallbackGame={activeGame} team={team} />
+
+            <section className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Play-by-play</p>
+                  <p className="font-mono text-xs text-zinc-500">
+                    {showPlayByPlay
+                      ? 'Most recent plays first. Updates with the live feed.'
+                      : 'See every whistle, foul, and bucket as it happens.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPlayByPlay((prev) => !prev)}
+                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-mono uppercase tracking-[0.3em] transition-colors ${
+                    showPlayByPlay
+                      ? 'border-thunder bg-thunder/10 text-thunder hover:bg-thunder/15'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-100'
+                  }`}
+                  aria-pressed={showPlayByPlay}
+                >
+                  <ListOrdered className="h-4 w-4" />
+                  {showPlayByPlay ? 'Hide plays' : 'Show plays'}
+                </button>
+              </div>
+
+              {showPlayByPlay && (
+                <div className="rounded-2xl border border-zinc-800 px-4 py-4">
+                  <PlayByPlay
+                    plays={summary?.plays}
+                    loading={loadingSummary && !summary}
+                    team={team}
+                    opponent={summary?.opponent ?? activeGame?.opponent}
+                    nbaGameId={nbaGameId}
+                    nbaActionIndex={nbaActionIndex}
+                    nbaVideoSupported={nbaVideoSupported}
+                  />
+                </div>
+              )}
+            </section>
+          </>
         ) : (
           <div className="rounded-2xl border border-zinc-800 px-4 py-12 text-center font-mono text-sm text-zinc-500">
             No live or recent results. Tap Sync once the {team.shortName} hit the floor.

@@ -4,5 +4,10 @@
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/nba-game.js": {
+      "maxDuration": 20
+    }
+  }
 }
