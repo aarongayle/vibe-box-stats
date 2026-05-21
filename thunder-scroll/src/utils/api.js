@@ -299,6 +299,56 @@ const parseInjuries = (injuriesData, teamId) => {
   };
 };
 
+const parsePlays = (plays, teamId) => {
+  if (!Array.isArray(plays)) return [];
+
+  return plays
+    .map((play) => {
+      const periodNumber = play?.period?.number ?? 0;
+      const periodDisplay =
+        play?.period?.displayValue ||
+        (periodNumber > 4 ? `OT${periodNumber - 4}` : periodNumber ? `Q${periodNumber}` : '');
+      const playTeamId = play?.team?.id ?? null;
+
+      let teamSide = null;
+      if (playTeamId) {
+        teamSide = playTeamId === teamId ? 'team' : 'opponent';
+      }
+
+      const participants = Array.isArray(play?.participants)
+        ? play.participants
+            .map((participant) => {
+              const athlete = participant?.athlete ?? participant;
+              return athlete?.displayName || athlete?.shortName || null;
+            })
+            .filter(Boolean)
+        : [];
+
+      return {
+        id: play?.id ?? play?.sequenceNumber ?? `${periodNumber}-${play?.clock?.displayValue ?? ''}-${play?.text ?? ''}`,
+        sequenceNumber: Number(play?.sequenceNumber) || 0,
+        text: play?.text ?? '',
+        type: play?.type?.text ?? '',
+        period: periodNumber,
+        periodDisplay,
+        clock: play?.clock?.displayValue ?? '',
+        scoringPlay: Boolean(play?.scoringPlay),
+        shootingPlay: Boolean(play?.shootingPlay),
+        scoreValue: Number(play?.scoreValue) || 0,
+        homeScore: toNumber(play?.homeScore),
+        awayScore: toNumber(play?.awayScore),
+        teamId: playTeamId,
+        teamSide,
+        participants,
+        wallclock: play?.wallclock ?? null,
+      };
+    })
+    .sort((a, b) => {
+      if (a.period !== b.period) return b.period - a.period;
+      return b.sequenceNumber - a.sequenceNumber;
+    });
+};
+
 const calculateGameStats = (plays, currentPeriod) => {
   const teamStats = {};
 
@@ -436,6 +486,7 @@ export async function fetchGameSummary(gameId, teamId) {
       : null,
     players: parsedPlayers,
     injuries: parseInjuries(data?.injuries, teamId),
+    plays: parsePlays(data?.plays, teamId),
     fetchedAt: new Date().toISOString(),
   };
 }
