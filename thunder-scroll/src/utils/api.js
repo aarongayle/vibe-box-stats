@@ -365,56 +365,149 @@ const parsePlays = (plays, teamId, abbreviations = {}) => {
     });
 };
 
-const calculateGameStats = (plays, currentPeriod) => {
+// NBA timeout rules: 7 per regulation game, at most 4 in the 4th quarter and
+// 2 after the 3:00 mark of the 4th; each overtime gets a fresh 2 (no carryover).
+const REGULATION_TIMEOUTS = 7;
+const FOURTH_QUARTER_TIMEOUT_CAP = 4;
+const LAST_THREE_MINUTES_TIMEOUT_CAP = 2;
+const OVERTIME_TIMEOUTS = 2;
+const LAST_THREE_MINUTES = 180;
+
+// ESPN shows "4:32" above a minute and "40.2" below it.
+const statClockSeconds = (display) => {
+  const parsed = parseClockToSeconds(display);
+  if (parsed !== null) return parsed;
+  const seconds = Number.parseFloat(display);
+  return Number.isFinite(seconds) ? seconds : null;
+};
+
+const isTeamFoul = (typeText) => {
+  if (!typeText.includes('foul')) return false;
+  // Offensive fouls and technicals don't count toward the team-foul penalty.
+  return !typeText.includes('offensive') && !typeText.includes('technical');
+};
+
+const countTimeoutsRemaining = (timeouts, period, clock) => {
+  const charged = timeouts.filter((timeout) => !timeout.refunded);
+
+  if (period > 4) {
+    const usedThisOvertime = charged.filter((timeout) => timeout.period === period).length;
+    return Math.max(0, OVERTIME_TIMEOUTS - usedThisOvertime);
+  }
+
+  let remaining = REGULATION_TIMEOUTS - charged.length;
+  if (period === 4) {
+    const fourth = charged.filter((timeout) => timeout.period === 4);
+    remaining = Math.min(remaining, FOURTH_QUARTER_TIMEOUT_CAP - fourth.length);
+    if (clock !== null && clock < LAST_THREE_MINUTES) {
+      const lateUsed = fourth.filter((timeout) => timeout.clock !== null && timeout.clock < LAST_THREE_MINUTES).length;
+      remaining = Math.min(remaining, LAST_THREE_MINUTES_TIMEOUT_CAP - lateUsed);
+    }
+  }
+  return Math.max(0, remaining);
+};
+
+const emptyTeamStats = () => ({ fouls: 0, challengesUsed: 0, challengesWon: 0, timeouts: [] });
+
+const calculateGameStats = (plays) => {
   const teamStats = {};
 
   const getStats = (id) => {
     if (!teamStats[id]) {
-      teamStats[id] = { fouls: 0, challengeUsed: false, timeoutsUsed: 0 };
+      teamStats[id] = emptyTeamStats();
     }
     return teamStats[id];
   };
 
-  if (!plays || !Array.isArray(plays)) return teamStats;
+  if (!Array.isArray(plays) || plays.length === 0) {
+    return { teamStats, currentPeriod: 0, currentClock: null };
+  }
+
+  // The game clock is where the latest period has run down to. (ESPN sometimes
+  // appends corrected plays out of order, so the last row isn't reliable.)
+  const currentPeriod = Math.max(0, ...plays.map((play) => play.period?.number ?? 0));
+  const currentClocks = plays
+    .filter((play) => play.period?.number === currentPeriod)
+    .map((play) => statClockSeconds(play.clock?.displayValue))
+    .filter((clock) => clock !== null);
+  const currentClock = currentClocks.length ? Math.min(...currentClocks) : null;
+
+  // A challenge is logged as a "Full Timeout" (or a "Challenge") followed by a
+  // "Coach's Challenge (<result>)" row at the same game clock. Track who called
+  // it so result rows without a team ("replaycenter") can still be attributed.
+  const momentOf = (play) => `${play.period?.number}|${play.clock?.displayValue}`;
+  const callerAtMoment = {};
+  const challengeResults = [];
 
   plays.forEach((play) => {
+    const typeText = play.type?.text?.toLowerCase() || '';
+    const period = play.period?.number;
+
+    if (typeText.startsWith("coach's challenge")) {
+      challengeResults.push(play);
+      return;
+    }
+
     const teamId = play.team?.id;
     if (!teamId) return;
-
     const stats = getStats(teamId);
 
-    // Challenge usage (approximate based on play text)
-    if (play.text && play.text.toLowerCase().includes("coach's challenge")) {
-      stats.challengeUsed = true;
+    if (typeText === 'challenge') {
+      callerAtMoment[momentOf(play)] = teamId;
+      return;
     }
 
-    // Timeouts used
-    if (play.type?.text?.toLowerCase().includes('timeout')) {
-      stats.timeoutsUsed++;
+    if (typeText.includes('timeout')) {
+      callerAtMoment[momentOf(play)] = teamId;
+      stats.timeouts.push({
+        period,
+        clock: statClockSeconds(play.clock?.displayValue),
+        moment: momentOf(play),
+        refunded: false,
+      });
+      return;
     }
 
-    // Fouls in current period
-    if (play.period?.number === currentPeriod) {
-      const typeText = play.type?.text?.toLowerCase() || '';
-      if (typeText.includes('foul')) {
-        // Exclude offensive, technical, etc. for bonus calculation purposes
-        if (
-          !typeText.includes('offensive') &&
-          !typeText.includes('technical') &&
-          !typeText.includes('defensive 3-seconds') &&
-          !typeText.includes('flagrant') // Flagrant usually counts, but let's double check. Yes, flagrant counts as team foul.
-        ) {
-           // Keep flagrant, it counts towards penalty.
-           // What about 'clear path'? Counts.
-           stats.fouls++;
-        } else if (typeText.includes('flagrant') || typeText.includes('clear path')) {
-            stats.fouls++;
-        }
-      }
+    if (period === currentPeriod && isTeamFoul(typeText)) {
+      stats.fouls++;
     }
   });
 
-  return teamStats;
+  challengeResults.forEach((play) => {
+    const typeText = play.type?.text?.toLowerCase() || '';
+    const moment = momentOf(play);
+    const teamId = play.team?.id ?? callerAtMoment[moment];
+    if (!teamId) return;
+
+    const stats = getStats(teamId);
+    stats.challengesUsed++;
+    const challengeTimeout = stats.timeouts.find((timeout) => timeout.moment === moment && !timeout.refunded);
+    if (typeText.includes('overturned')) {
+      // Successful challenge: team keeps its timeout and earns a second challenge.
+      stats.challengesWon++;
+      if (challengeTimeout) challengeTimeout.refunded = true;
+    } else if (!challengeTimeout) {
+      // Unsuccessful challenge costs a timeout; usually already logged as a Full Timeout.
+      stats.timeouts.push({
+        period: play.period?.number,
+        clock: statClockSeconds(play.clock?.displayValue),
+        moment,
+        refunded: false,
+      });
+    }
+  });
+
+  return { teamStats, currentPeriod, currentClock };
+};
+
+const summarizeTeamStats = (stats, currentPeriod, currentClock) => {
+  // Every team gets one challenge; overturning the first earns a second (max two).
+  const challengesAllowed = stats.challengesWon > 0 ? 2 : 1;
+  return {
+    fouls: stats.fouls,
+    challengeUsed: stats.challengesUsed >= challengesAllowed,
+    timeoutsRemaining: countTimeoutsRemaining(stats.timeouts, currentPeriod, currentClock),
+  };
 };
 
 export async function fetchSchedule(teamId) {
@@ -456,12 +549,20 @@ export async function fetchGameSummary(gameId, teamId) {
   const allPlayers = [...parsedPlayers.team, ...parsedPlayers.opponent];
   calculateOnCourtPlayers(allPlayers, data?.plays);
 
-  const computedStats = calculateGameStats(data?.plays, status.period);
+  const { teamStats: computedStats, currentPeriod, currentClock } = calculateGameStats(data?.plays);
   const teamIdValue = team?.id || team?.team?.id;
   const opponentId = opponent?.id || opponent?.team?.id;
-  
-  const teamStats = (teamIdValue && computedStats[teamIdValue]) || { fouls: 0, challengeUsed: false, timeoutsUsed: 0 };
-  const opponentStats = (opponentId && computedStats[opponentId]) || { fouls: 0, challengeUsed: false, timeoutsUsed: 0 };
+
+  const teamStats = summarizeTeamStats(
+    (teamIdValue && computedStats[teamIdValue]) || emptyTeamStats(),
+    currentPeriod,
+    currentClock,
+  );
+  const opponentStats = summarizeTeamStats(
+    (opponentId && computedStats[opponentId]) || emptyTeamStats(),
+    currentPeriod,
+    currentClock,
+  );
 
   return {
     gameId,
@@ -477,12 +578,7 @@ export async function fetchGameSummary(gameId, teamId) {
     team: {
       score: toNumber(team?.score?.value ?? team?.score?.displayValue ?? team?.score),
       record: getRecordSummary(team),
-      stats: {
-        fouls: teamStats.fouls,
-        challengeUsed: teamStats.challengeUsed,
-        timeoutsUsed: teamStats.timeoutsUsed,
-        timeoutsRemaining: team?.timeoutsRemaining ?? null, // Try to get from API if available
-      }
+      stats: teamStats,
     },
     opponent: opponent
       ? {
@@ -492,12 +588,7 @@ export async function fetchGameSummary(gameId, teamId) {
           logo: pickLogo(opponentTeam),
           score: toNumber(opponent?.score?.value ?? opponent?.score?.displayValue ?? opponent?.score),
           record: getRecordSummary(opponent),
-          stats: {
-            fouls: opponentStats.fouls,
-            challengeUsed: opponentStats.challengeUsed,
-            timeoutsUsed: opponentStats.timeoutsUsed,
-            timeoutsRemaining: opponent?.timeoutsRemaining ?? null,
-          }
+          stats: opponentStats,
         }
       : null,
     players: parsedPlayers,
