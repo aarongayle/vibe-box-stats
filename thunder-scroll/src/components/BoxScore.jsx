@@ -380,20 +380,7 @@ const BoxScore = ({ summary, loading, fallbackGame, team }) => {
     if (!stats) return null;
     const rowClass = `flex items-center gap-2 ${alignRight ? 'justify-end' : 'justify-start'}`;
 
-    // Estimate timeouts
-    let timeoutsDisplay = '-';
-    if (stats.timeoutsRemaining !== null && stats.timeoutsRemaining !== undefined) {
-      timeoutsDisplay = stats.timeoutsRemaining;
-    } else if (stats.timeoutsUsed !== undefined) {
-      // Rough estimate (7 per game standard)
-      timeoutsDisplay = Math.max(0, 7 - stats.timeoutsUsed);
-    }
-    
-    // If game is final, timeouts usually meaningless (0), but if computed from used, shows remaining.
-    // For completed games, maybe hide or show 0?
-    if (status.state === 'post') {
-       timeoutsDisplay = 0;
-    }
+    const timeoutsDisplay = stats.timeoutsRemaining ?? '-';
 
     const isBonus = stats.fouls >= 5;
 

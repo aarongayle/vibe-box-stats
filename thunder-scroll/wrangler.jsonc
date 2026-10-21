@@ -1,0 +1,16 @@
+// Thunder Scroll on Cloudflare Workers at boxscore.gayle.dev: the Vite build in dist/ as static assets,
+// with worker/index.js answering /api/* (ESPN and NBA.com proxies). Deploy with `pnpm run deploy`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "thunder-scroll",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "routes": [{ "pattern": "boxscore.gayle.dev", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false
+}
