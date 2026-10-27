@@ -1,8 +1,10 @@
 // NBA Team mapping: slug -> { id, name, abbreviation, shortName, logo, primaryColor }
 // ESPN team IDs for NBA teams
 // Logo URLs use ESPN's standard team logo format
+// ESPN uses its own codes for a few teams (NOP -> no, UTA -> utah)
+const ESPN_LOGO_CODES = { NOP: 'no', UTA: 'utah' };
 const getLogoUrl = (abbreviation) => 
-  `https://a.espncdn.com/i/teamlogos/nba/500/${abbreviation}.png`;
+  `https://a.espncdn.com/i/teamlogos/nba/500/${ESPN_LOGO_CODES[abbreviation] ?? abbreviation}.png`;
 
 export const TEAMS = {
   hawks: { id: '1', name: 'Atlanta Hawks', abbreviation: 'ATL', shortName: 'Hawks', logo: getLogoUrl('ATL'), primaryColor: '#E03A3E' },
