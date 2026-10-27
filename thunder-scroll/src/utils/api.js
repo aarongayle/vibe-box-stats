@@ -146,9 +146,12 @@ const parseTeamPlayers = (teamSection) => {
         if (minutesValue === 0 || row.didNotPlay) return null;
 
         const athlete = row.athlete ?? {};
+        // Split on the first space so suffixes like "Jr." stay with the last name
+        const [firstToken, ...restTokens] = (athlete.displayName ?? '').trim().split(/\s+/);
         const lastName =
           athlete.lastName ??
-          (athlete.displayName ? athlete.displayName.split(' ').slice(-1)[0] : athlete.shortName ?? 'Player');
+          (restTokens.length ? restTokens.join(' ') : firstToken || athlete.shortName || 'Player');
+        const firstName = athlete.firstName ?? (restTokens.length ? firstToken : '');
         
         const isStarter = row.starter ?? false;
         const isOnCourt = row.onCourt ?? false;
@@ -172,6 +175,7 @@ const parseTeamPlayers = (teamSection) => {
         return {
           id: athlete.id ?? lastName,
           name: lastName,
+          firstName,
           displayName: athlete.displayName,
           isStarter,
           isOnCourt,

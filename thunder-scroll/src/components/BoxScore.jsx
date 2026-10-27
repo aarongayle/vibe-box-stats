@@ -163,9 +163,14 @@ const TeamSection = forwardRef(function TeamSection({
 
               return (
                 <tr key={player.id} className="border-t border-zinc-900/70">
-                  <td className={`py-2.5 pr-6 font-sans ${nameColor}`}>
+                  <td className={`py-1.5 pr-6 font-sans ${nameColor}`} title={player.displayName}>
                     <div className="flex items-center gap-2">
-                      <span className={isEjected ? 'line-through' : ''}>{player.name}</span>
+                      <span className={`flex flex-col whitespace-nowrap ${isEjected ? 'line-through' : ''}`}>
+                        {player.firstName && (
+                          <span className="text-[10px] leading-[11px] font-normal text-zinc-500">{player.firstName}</span>
+                        )}
+                        <span className="leading-[17px]">{player.name}</span>
+                      </span>
                       {player.isOnCourt && (
                         <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-zinc-800 text-[10px] font-bold text-emerald-400">
                           C
