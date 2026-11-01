@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, forwardRef } from 'react';
+import ScoreMarginChart from './ScoreMarginChart';
 
 const formatUpdatedAt = (iso) => {
   if (!iso) return '';
@@ -360,6 +361,9 @@ const BoxScore = ({ summary, loading, fallbackGame, team }) => {
   const teamScore = summary?.team?.score ?? fallbackGame?.teamScore ?? null;
   const opponentScore = opponent ? opponent.score ?? fallbackGame?.opponentScore ?? null : fallbackGame?.opponentScore ?? null;
 
+  const homeId = summary?.competition?.home?.id;
+  const teamIsHome = homeId ? String(homeId) === String(team?.id) : fallbackGame?.isHome ?? null;
+
   const teamName = team?.shortName ?? 'Team';
   const teamAbbreviation = team?.abbreviation ?? 'TEA';
 
@@ -580,6 +584,18 @@ const BoxScore = ({ summary, loading, fallbackGame, team }) => {
         </div>
         <div className="text-right font-mono text-xs text-zinc-500">{clockLabel}</div>
       </div>
+
+      {!loading && summary?.plays?.length > 0 && (
+        <div className="rounded-2xl border border-zinc-800 px-4 py-3">
+          <ScoreMarginChart
+            plays={summary.plays}
+            teamIsHome={teamIsHome}
+            teamAbbreviation={teamAbbreviation}
+            opponentAbbreviation={opponent?.abbreviation ?? fallbackGame?.opponent?.abbreviation ?? 'OPP'}
+            isLive={isLive}
+          />
+        </div>
+      )}
 
       <div className="rounded-2xl border border-zinc-800 px-4 py-2">{renderTable()}</div>
       {renderInjuries()}
