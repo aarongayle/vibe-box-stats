@@ -65,12 +65,12 @@ const ScoreMarginChart = ({ plays, teamIsHome, teamAbbreviation, opponentAbbrevi
       mid: x(periodStart(i + 1) + periodLength(i + 1) / 2),
     }));
 
-    return { points, totalTime, extent, teamLead, opponentLead, line, area, periodTicks, x, y };
+    return { points, totalTime, endTime, latest, extent, teamLead, opponentLead, line, area, periodTicks, x, y };
   }, [plays, teamIsHome, isLive]);
 
   if (!chart) return null;
 
-  const { points, totalTime, extent, teamLead, opponentLead, line, area, periodTicks, x, y } = chart;
+  const { points, totalTime, endTime, latest, extent, teamLead, opponentLead, line, area, periodTicks, x, y } = chart;
   const hovered = hoverIndex !== null ? points[hoverIndex] : null;
 
   const handlePointer = (event) => {
@@ -87,20 +87,36 @@ const ScoreMarginChart = ({ plays, teamIsHome, teamAbbreviation, opponentAbbrevi
     return margin > 0 ? `${teamAbbreviation} +${margin}` : `${opponentAbbreviation} +${-margin}`;
   };
 
+  const marginColor = (margin) => {
+    if (margin === 0) return undefined;
+    return margin > 0 ? TEAM_COLOR : OPPONENT_COLOR;
+  };
+
   const hoverLeft = hovered ? (x(hovered.t) / WIDTH) * 100 : 0;
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Score margin</p>
-        <p className="font-mono text-[11px] text-zinc-500">
-          Largest lead{' '}
-          <span className="text-zinc-300">
-            {teamAbbreviation} +{teamLead}
-          </span>
-          {' · '}
-          <span className="text-zinc-300">
-            {opponentAbbreviation} +{opponentLead}
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">Score margin</p>
+          <p className="mt-0.5 font-mono text-[11px] text-zinc-500">
+            Largest lead{' '}
+            <span className="text-zinc-300">
+              {teamAbbreviation} +{teamLead}
+            </span>
+            {' · '}
+            <span className="text-zinc-300">
+              {opponentAbbreviation} +{opponentLead}
+            </span>
+          </p>
+        </div>
+        <p className="font-mono text-zinc-500">
+          <span className="mr-2 text-[10px] uppercase tracking-[0.3em]">{isLive ? 'Now' : 'Final'}</span>
+          <span
+            className="text-lg font-semibold leading-none text-zinc-100"
+            style={{ color: marginColor(latest.margin) }}
+          >
+            {marginLabel(latest.margin)}
           </span>
         </p>
       </div>
@@ -125,7 +141,7 @@ const ScoreMarginChart = ({ plays, teamIsHome, teamAbbreviation, opponentAbbrevi
               preserveAspectRatio="none"
               className="h-full w-full overflow-visible"
               role="img"
-              aria-label={`Score margin over time. Largest leads: ${teamAbbreviation} ${teamLead}, ${opponentAbbreviation} ${opponentLead}.`}
+              aria-label={`Score margin over time. ${isLive ? 'Current' : 'Final'}: ${marginLabel(latest.margin)}. Largest leads: ${teamAbbreviation} ${teamLead}, ${opponentAbbreviation} ${opponentLead}.`}
             >
               <defs>
                 <clipPath id="margin-above">
@@ -171,6 +187,19 @@ const ScoreMarginChart = ({ plays, teamIsHome, teamAbbreviation, opponentAbbrevi
                 clipPath="url(#margin-below)"
               />
 
+              {!hovered && (
+                <line
+                  x1={x(endTime)}
+                  x2={x(endTime)}
+                  y1={y(0)}
+                  y2={y(latest.margin)}
+                  stroke={marginColor(latest.margin) ?? '#a1a1aa'}
+                  strokeOpacity="0.5"
+                  strokeDasharray="2 2"
+                  vectorEffect="non-scaling-stroke"
+                />
+              )}
+
               {hovered && (
                 <line
                   x1={x(hovered.t)}
@@ -182,6 +211,17 @@ const ScoreMarginChart = ({ plays, teamIsHome, teamAbbreviation, opponentAbbrevi
                 />
               )}
             </svg>
+
+            {!hovered && (
+              <span
+                className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-ink"
+                style={{
+                  left: `${(x(endTime) / WIDTH) * 100}%`,
+                  top: `${(y(latest.margin) / HEIGHT) * 100}%`,
+                  backgroundColor: marginColor(latest.margin) ?? '#a1a1aa',
+                }}
+              />
+            )}
 
             {hovered && (
               <>
