@@ -511,6 +511,25 @@ const summarizeTeamStats = (stats, currentPeriod, currentClock) => {
   };
 };
 
+const ESPN_STANDINGS_URL = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings';
+
+// Returns { [teamId]: "W-L" } for every team.
+export async function fetchStandings() {
+  if (USE_PROXY) {
+    const data = await httpGet('/standings');
+    return data?.records ?? {};
+  }
+  const data = await httpGet(ESPN_STANDINGS_URL);
+  const records = {};
+  for (const group of data?.children ?? []) {
+    for (const entry of group?.standings?.entries ?? []) {
+      const overall = entry?.stats?.find((stat) => stat.type === 'total' || stat.name === 'overall');
+      if (entry?.team?.id && overall?.displayValue) records[entry.team.id] = overall.displayValue;
+    }
+  }
+  return records;
+}
+
 export async function fetchSchedule(teamId) {
   const path = USE_PROXY 
     ? `/schedule?teamId=${encodeURIComponent(teamId)}` 

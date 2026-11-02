@@ -3,11 +3,13 @@
 import nbaGame from './nba-game.js';
 import nbaPbp from './nba-pbp.js';
 import schedule from './schedule.js';
+import standings from './standings.js';
 import summary from './summary.js';
 import { json, preflight } from './http.js';
 
 const routes = {
   '/api/schedule': schedule,
+  '/api/standings': standings,
   '/api/summary': summary,
   '/api/nba-game': nbaGame,
   '/api/nba-pbp': nbaPbp,

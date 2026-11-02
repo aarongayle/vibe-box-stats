@@ -1,8 +1,23 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { fetchStandings } from '../utils/api';
 import { getAllTeams } from '../utils/teams';
 
 const TeamSelection = () => {
   const teams = getAllTeams();
+  const [records, setRecords] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchStandings()
+      .then((data) => {
+        if (!cancelled) setRecords(data);
+      })
+      .catch((error) => console.error('Failed to load standings', error));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-ink text-zinc-100">
@@ -34,6 +49,7 @@ const TeamSelection = () => {
                 )}
                 <span className="font-sans text-lg font-semibold text-zinc-100">{team.shortName}</span>
                 <span className="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500">{team.abbreviation}</span>
+                <span className="font-mono text-sm tabular-nums text-zinc-300">{records[team.id] ?? '\u00a0'}</span>
               </Link>
             ))}
           </div>
