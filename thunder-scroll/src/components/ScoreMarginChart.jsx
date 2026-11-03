@@ -17,7 +17,8 @@ const buildSeries = (plays, teamIsHome) => {
   const points = [{ t: 0, margin: 0, team: 0, opponent: 0, period: 1, clock: '12:00' }];
   const chronological = [...plays]
     .filter((play) => play.homeScore !== null && play.awayScore !== null && play.period > 0 && play.clockSeconds !== null)
-    .sort((a, b) => a.period - b.period || a.sequenceNumber - b.sequenceNumber);
+    // Game-clock order: ESPN appends corrected plays with late sequence numbers.
+    .sort((a, b) => a.period - b.period || b.clockSeconds - a.clockSeconds || a.sequenceNumber - b.sequenceNumber);
 
   for (const play of chronological) {
     const team = teamIsHome ? play.homeScore : play.awayScore;

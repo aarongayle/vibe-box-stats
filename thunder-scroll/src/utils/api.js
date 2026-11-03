@@ -310,6 +310,14 @@ const parseClockToSeconds = (display) => {
   return minutes * 60 + seconds;
 };
 
+// ESPN shows "4:32" above a minute and "40.2" below it.
+const statClockSeconds = (display) => {
+  const parsed = parseClockToSeconds(display);
+  if (parsed !== null) return parsed;
+  const seconds = Number.parseFloat(display);
+  return Number.isFinite(seconds) ? seconds : null;
+};
+
 const parsePlays = (plays, teamId, abbreviations = {}) => {
   if (!Array.isArray(plays)) return [];
 
@@ -338,6 +346,7 @@ const parsePlays = (plays, teamId, abbreviations = {}) => {
         : [];
 
       const clockDisplay = play?.clock?.displayValue ?? '';
+      const clockSeconds = statClockSeconds(clockDisplay);
 
       return {
         id: play?.id ?? play?.sequenceNumber ?? `${periodNumber}-${clockDisplay}-${play?.text ?? ''}`,
@@ -347,7 +356,8 @@ const parsePlays = (plays, teamId, abbreviations = {}) => {
         period: periodNumber,
         periodDisplay,
         clock: clockDisplay,
-        clockSeconds: parseClockToSeconds(clockDisplay),
+        // Whole seconds, matching how NBA.com clocks are keyed for video lookup.
+        clockSeconds: clockSeconds === null ? null : Math.round(clockSeconds),
         scoringPlay: Boolean(play?.scoringPlay),
         shootingPlay: Boolean(play?.shootingPlay),
         scoreValue: Number(play?.scoreValue) || 0,
@@ -360,8 +370,13 @@ const parsePlays = (plays, teamId, abbreviations = {}) => {
         wallclock: play?.wallclock ?? null,
       };
     })
+    // Newest first. Order by game clock, not sequence number alone: ESPN appends
+    // reviewed/corrected plays with late sequence numbers but their original clock.
     .sort((a, b) => {
       if (a.period !== b.period) return b.period - a.period;
+      if (a.clockSeconds !== null && b.clockSeconds !== null && a.clockSeconds !== b.clockSeconds) {
+        return a.clockSeconds - b.clockSeconds;
+      }
       return b.sequenceNumber - a.sequenceNumber;
     });
 };
@@ -373,14 +388,6 @@ const FOURTH_QUARTER_TIMEOUT_CAP = 4;
 const LAST_THREE_MINUTES_TIMEOUT_CAP = 2;
 const OVERTIME_TIMEOUTS = 2;
 const LAST_THREE_MINUTES = 180;
-
-// ESPN shows "4:32" above a minute and "40.2" below it.
-const statClockSeconds = (display) => {
-  const parsed = parseClockToSeconds(display);
-  if (parsed !== null) return parsed;
-  const seconds = Number.parseFloat(display);
-  return Number.isFinite(seconds) ? seconds : null;
-};
 
 const isTeamFoul = (typeText) => {
   if (!typeText.includes('foul')) return false;
